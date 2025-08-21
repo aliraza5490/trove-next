@@ -14,5 +14,6 @@ async def create_db_and_tables():
 
 # Database dependency
 async def get_session():
-    async with AsyncSession(engine) as session:
+    # Prevent attribute expiration on commit to avoid implicit lazy-loads
+    async with AsyncSession(engine, expire_on_commit=False) as session:
         yield session

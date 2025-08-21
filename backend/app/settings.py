@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str
     # SENTRY_DSN: HttpUrl | None = None
     POSTGRES_URL: str
+    GROQ_API_KEY: str
     
     @computed_field  # type: ignore[prop-decorator]
     @property
