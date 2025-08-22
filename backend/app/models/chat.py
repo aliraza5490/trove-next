@@ -9,6 +9,7 @@ class ChatBase(SQLModel):
 class Chat(ChatBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     messages: list["Message"] = Relationship(back_populates="chat")
+    user_id: UUID = Field(foreign_key="user.id")
 
 class ChatCreate(ChatBase):
     # OpenAPI/Swagger examples
