@@ -139,7 +139,7 @@ class ChatService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
 
         # Fetch messages belonging to the chat
-        msg_result = await session.exec(select(Message).where(Message.chat_id == chat.id))
+        msg_result = await session.exec(select(Message).where(Message.chat_id == chat.id, Message.role != Role.SYSTEM).order_by(Message.id))
         messages = msg_result.all()
 
         # Return a JSON-serializable structure with chat and its messages
@@ -162,8 +162,9 @@ class ChatService:
 
     @classmethod
     async def get_chat_list(cls, session: AsyncSession, user: User):
-        chats = await session.exec(select(Chat).where(Chat.user_id == user.id))
-        return chats.all()
+        result = await session.exec(select(Chat).where(Chat.user_id == user.id))
+        chats = result.all()
+        return chats
 
     @classmethod
     async def update_chat_title(cls, chat_id: str, new_title: str, session: AsyncSession):

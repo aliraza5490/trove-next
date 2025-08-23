@@ -17,6 +17,7 @@ export const handleLogin = async (formData: FormData) => {
     cookieStore.set({
       name: 'token',
       value: data.access_token,
+      expires: new Date(Date.now() + 60 * 60 * 1000 * 24 * 8), // 8 days
       path: '/',
       httpOnly: false,
       secure: false,

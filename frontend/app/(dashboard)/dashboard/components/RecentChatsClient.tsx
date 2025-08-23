@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pencil, Trash2, Check, X, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -18,15 +18,27 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import useChatListStore from '@/store/chatList';
 
 export type Chat = {
   id: string;
   title: string;
-  updatedAt: string;
+  user_id: string;
 };
 
-export default function RecentChatsClient({ initialChats }: { initialChats: Chat[] }) {
-  const [chats, setChats] = useState<Chat[]>(initialChats);
+export default function RecentChatsClient({
+  initialChats,
+}: {
+  initialChats: Chat[];
+}) {
+  const chatsList = useChatListStore((state) => state.chats);
+  const updateChatsList = useChatListStore((state) => state.updateChats);
+  const updateChat = useChatListStore((state) => state.updateChat);
+
+  useEffect(() => {
+    updateChatsList(initialChats);
+  }, [initialChats]);
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
 
@@ -46,24 +58,24 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
       toast.error('Title cannot be empty');
       return;
     }
-    setChats((prev) => prev.map((c) => (c.id === id ? { ...c, title: next } : c)));
+    updateChat(id, next);
     setEditingId(null);
     setDraftTitle('');
     toast.success('Chat title updated');
   };
 
   const deleteChat = (id: string) => {
-    const target = chats.find((c) => c.id === id);
+    const target = chatsList.find((c) => c.id === id);
     if (!target) return;
     const ok = window.confirm(`Delete chat "${target.title}"?`);
     if (!ok) return;
-    setChats((prev) => prev.filter((c) => c.id !== id));
+    updateChatsList(chatsList.filter((c) => c.id !== id));
     toast.success('Chat deleted');
   };
 
   return (
     <>
-      {chats.map((c) => {
+      {chatsList.map((c) => {
         const isEditing = editingId === c.id;
         return (
           <SidebarMenuItem key={c.id}>
@@ -80,11 +92,21 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
                   className="h-8"
                   autoFocus
                 />
-                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => saveEdit(c.id)}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={() => saveEdit(c.id)}
+                >
                   <Check className="h-4 w-4" />
                   <span className="sr-only">Save</span>
                 </Button>
-                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={cancelEdit}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={cancelEdit}
+                >
                   <X className="h-4 w-4" />
                   <span className="sr-only">Cancel</span>
                 </Button>
@@ -92,9 +114,11 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
             ) : (
               <>
                 <SidebarMenuButton asChild>
-                  <Link href={`/dashboard/${c.id}`}>
+                  <Link href={`/dashboard/chat/${c.id}`}>
                     <span className="line-clamp-1">{c.title}</span>
-                    <span className="text-muted-foreground text-xs">{c.updatedAt}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {c.user_id}
+                    </span>
                   </Link>
                 </SidebarMenuButton>
                 <DropdownMenu>
@@ -109,7 +133,10 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
                       Rename
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" onSelect={() => deleteChat(c.id)}>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => deleteChat(c.id)}
+                    >
                       <Trash2 className="h-4 w-4" />
                       Delete
                     </DropdownMenuItem>

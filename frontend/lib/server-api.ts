@@ -11,12 +11,6 @@ import * as jwt from 'jsonwebtoken';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
-// In Edge/serverless runtimes, force Axios to use the fetch adapter
-const maybeFetchAdapter =
-  typeof globalThis !== 'undefined' && 'EdgeRuntime' in globalThis
-    ? ({ adapter: 'fetch' } as const)
-    : ({} as const);
-
 // --- Token storage helpers
 async function getToken() {
   try {
@@ -59,7 +53,6 @@ type RetriableConfig = AxiosRequestConfig & { _retry?: boolean };
 
 const serverAPI: AxiosInstance = axios.create({
   baseURL: BACKEND_URL,
-  ...maybeFetchAdapter,
 });
 
 serverAPI.interceptors.request.use(
