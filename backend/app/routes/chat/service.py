@@ -8,7 +8,7 @@ from langchain_core.messages.utils import count_tokens_approximately
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
-
+import json
 
 from ...settings import settings
 from ...models.user import User
@@ -23,9 +23,9 @@ class MessageCreate(BaseModel):
 
 class ChatService:
     @classmethod
-    async def create_message(cls, message: str, chat_id: str | None, session: AsyncSession, user: User):
+    async def create_chat(cls, message: str, user: User, session: AsyncSession):
         llm = ChatGroq(
-            model="deepseek-r1-distill-llama-70b",
+            model="openai/gpt-oss-20b",
             temperature=0,
             max_tokens=None,
             reasoning_format="parsed",
@@ -34,7 +34,39 @@ class ChatService:
             api_key=settings.GROQ_API_KEY
         )
 
-        # Avoid shadowing and normalize chat_id to UUID
+        # Generate a title using the LLM
+        title = await llm.ainvoke([
+            ('system', 'You will generate a title for a new chat based on the user message. Without quotes.'),
+            ('user', message)
+        ])
+
+        chat = Chat(title=title.content, user_id=user.id)
+        session.add(chat)
+        await session.commit()
+        await session.refresh(chat)
+
+        system_message = Message(
+            chat=chat,
+            message="Your name is Trove. You are a helpful AI assistant.",
+            role=Role.SYSTEM
+        )
+        session.add(system_message)
+        await session.commit()
+
+        return chat
+
+    @classmethod
+    async def create_message(cls, message: str, chat_id: str, session: AsyncSession):
+        llm = ChatGroq(
+            model="openai/gpt-oss-20b",
+            temperature=0,
+            max_tokens=None,
+            reasoning_format="parsed",
+            timeout=None,
+            max_retries=2,
+            api_key=settings.GROQ_API_KEY
+        )
+
         user_input = message
         chat_uuid: UUID | None = None
         if chat_id:
@@ -43,58 +75,22 @@ class ChatService:
             except ValueError:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat_id")
 
-        isNewChat = False
-        chat = None
-        # Basic validation
-        if not chat_uuid:
-            # Generate a title using the LLM
-            title = await llm.ainvoke([
-                ('system', 'You will generate a title for a new chat based on the user message. Without quotes.'),
-                ('user', user_input)
-            ])
-
-            chat = Chat(title=title.content, user_id=user.id)
-            session.add(chat)
-            await session.commit()
-            await session.refresh(chat)
-
-            system_message = Message(
-                chat=chat,
-                message="Your name is Trove. You are a helpful AI assistant.",
-                role=Role.SYSTEM
-            )
-            user_message_row = Message(
-                chat=chat,
-                message=user_input,
-                role=Role.USER
-            )
-            session.add(system_message)
-            session.add(user_message_row)
-            await session.commit()
-
-            # Capture id immediately to avoid any lazy-loads later
-            chat_uuid = chat.id
-            isNewChat = True
-        else:
-            chat_result = await session.exec(select(Chat).where(Chat.id == chat_uuid))
-            chat = chat_result.first()
-
-            if not chat:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
-
-            # Persist the user's message for existing chats as well
-            user_message_row = Message(
-                chat=chat,
-                message=user_input,
-                role=Role.USER
-            )
-            session.add(user_message_row)
-            await session.commit()
+        chat_result = await session.exec(select(Chat).where(Chat.id == chat_uuid))
+        chat = chat_result.first()
 
         if not chat:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
 
-        chat_messages = await session.exec(select(Message).where(Message.chat_id == chat.id))
+        # Persist the user's message for existing chats as well
+        user_message_row = Message(
+            chat=chat,
+            message=user_input,
+            role=Role.USER
+        )
+        session.add(user_message_row)
+        await session.commit()
+
+        chat_messages = await session.exec(select(Message).where(Message.chat_id == chat.id).order_by(Message.created_at.asc()))
         messages = chat_messages.all()
 
         ROLE_MAP = {
@@ -102,23 +98,26 @@ class ChatService:
             Role.ASSISTANT: AIMessage,
             Role.SYSTEM: SystemMessage,
         }
-
         lc_messages = [ROLE_MAP[msg.role](content=msg.message, id=str(msg.id)) for msg in messages]
         trimmedMessages = trim_messages(
             lc_messages,
-            max_tokens=45,
+            max_tokens=10000,
             strategy="last",
             include_system=True,
             allow_partial=False,
             token_counter=count_tokens_approximately,
         )
+
         # Use async streaming to avoid blocking event loop
         async def generate():
             full_response = ""
             async for chunk in llm.astream(trimmedMessages):
-                if chunk.content:
-                    full_response += chunk.content
-                    yield f"data: {chunk.content}\n\n"
+                full_response += chunk.content
+                event = {
+                    "content": chunk.content,
+                    "type": "message"
+                }
+                yield f"data: {json.dumps(event)}\n\n"
             ai_message = Message(
                 chat=chat,
                 message=full_response,
@@ -126,29 +125,30 @@ class ChatService:
             )
             session.add(ai_message)
             await session.commit()
-            yield f"chat_id:{chat.id}\n\n"
+            event = {
+                "content": str(chat_id),
+                "type": "end"
+            }
+            yield f"data: {json.dumps(event)}\n\n"
 
-        return StreamingResponse(content=generate(), media_type="text/event-stream")
+        return StreamingResponse(generate(), media_type="text/event-stream")
 
     @classmethod
     async def get_chat_history(cls, chat_id: str, user: User, session: AsyncSession):
         # Fetch chat
         chat_result = await session.exec(select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id))
-        chat = chat_result.first()
-        if not chat:
+        if not chat_result:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+        
+        chat = chat_result.first()
 
         # Fetch messages belonging to the chat
-        msg_result = await session.exec(select(Message).where(Message.chat_id == chat.id, Message.role != Role.SYSTEM).order_by(Message.id))
+        msg_result = await session.exec(select(Message).where(Message.chat_id == chat.id, Message.role != Role.SYSTEM).order_by(Message.created_at.asc()))
         messages = msg_result.all()
 
         # Return a JSON-serializable structure with chat and its messages
         return {
-            "chat": {
-                "id": str(chat.id),
-                "title": chat.title,
-                "user_id": str(chat.user_id),
-            },
+            "chat": chat,
             "messages": [
                 {
                     "id": str(m.id),
@@ -162,7 +162,7 @@ class ChatService:
 
     @classmethod
     async def get_chat_list(cls, session: AsyncSession, user: User):
-        result = await session.exec(select(Chat).where(Chat.user_id == user.id))
+        result = await session.exec(select(Chat).where(Chat.user_id == user.id).order_by(Chat.created_at.desc()))
         chats = result.all()
         return chats
 

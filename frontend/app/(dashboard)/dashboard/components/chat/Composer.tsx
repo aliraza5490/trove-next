@@ -1,33 +1,53 @@
-import { SelectedDoc } from "../types";
-import React, { useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { SelectedDoc } from '../types';
+import React, { useMemo } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Paperclip, Send, Upload, Image as ImageIcon, FileText, Wrench, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Paperclip,
+  Send,
+  Upload,
+  Image as ImageIcon,
+  FileText,
+  Wrench,
+  X,
+  Loader2Icon,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 function Composer(props: {
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   input: string;
   setInput: (v: string) => void;
   onSend: () => void;
-  isStreaming: boolean;
+  disabled: boolean;
   webSearch: boolean;
   setWebSearch: (v: boolean) => void;
   onUploadClick: () => void;
   selectedDocs: SelectedDoc[];
   onRemoveDoc: (id: string) => void;
 }) {
-  const { textareaRef, input, setInput, onSend, isStreaming, webSearch, setWebSearch, onUploadClick, selectedDocs, onRemoveDoc } = props;
+  const {
+    textareaRef,
+    input,
+    setInput,
+    onSend,
+    disabled,
+    webSearch,
+    setWebSearch,
+    onUploadClick,
+    selectedDocs,
+    onRemoveDoc,
+  } = props;
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onSend();
     }
@@ -42,13 +62,13 @@ function Composer(props: {
   };
 
   const iconFor = (mime: string) => {
-    if (mime.startsWith("image/")) return <ImageIcon className="size-3.5" />;
+    if (mime.startsWith('image/')) return <ImageIcon className="size-3.5" />;
     return <FileText className="size-3.5" />;
   };
 
   const placeholder = useMemo(
-    () => (webSearch ? "Ask anything... (Web Search ON)" : "Ask anything..."),
-    [webSearch]
+    () => (webSearch ? 'Ask anything... (Web Search ON)' : 'Ask anything...'),
+    [webSearch],
   );
 
   return (
@@ -61,10 +81,15 @@ function Composer(props: {
               className="group inline-flex items-center gap-2 rounded-full bg-accent/60 text-xs text-foreground px-2.5 py-1.5 border"
             >
               <span className="text-muted-foreground">{iconFor(d.type)}</span>
-              <span className="max-w-[14rem] truncate" title={`${d.name} • ${formatBytes(d.size)}`}>
+              <span
+                className="max-w-[14rem] truncate"
+                title={`${d.name} • ${formatBytes(d.size)}`}
+              >
                 {d.name}
               </span>
-              <span className="hidden sm:inline text-muted-foreground min-w-fit">· {formatBytes(d.size)}</span>
+              <span className="hidden sm:inline text-muted-foreground min-w-fit">
+                · {formatBytes(d.size)}
+              </span>
               <button
                 type="button"
                 onClick={() => onRemoveDoc(d.id)}
@@ -88,14 +113,23 @@ function Composer(props: {
           className="max-h-32 min-h-14 flex-1 resize-none bg-transparent"
           aria-label="Chat input"
         />
-        
+
         <Button
           onClick={onSend}
-          disabled={!input.trim() || isStreaming}
+          disabled={!input.trim() || disabled}
           className="shrink-0 absolute bottom-2 right-2"
         >
-          <Send className="size-4" />
-          <span className="sr-only">Send</span>
+          {disabled ? (
+            <>
+              <Loader2Icon className="size-4 animate-spin" />
+              <span>Sending...</span>
+            </>
+          ) : (
+            <>
+              <Send className="size-4" />
+              <span>Send</span>
+            </>
+          )}
         </Button>
       </div>
 
@@ -115,26 +149,40 @@ function Composer(props: {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuItem  onSelect={(e) => { e.preventDefault(); onUploadClick(); }}>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                onUploadClick();
+              }}
+            >
               <Upload className="size-4" /> Upload Document
             </DropdownMenuItem>
             <DropdownMenuCheckboxItem
               checked={webSearch}
               onCheckedChange={(v) => setWebSearch(Boolean(v))}
             >
-              {webSearch ? <>
-                <span className="text-sm">Disable Web Search</span>
-              </> : <>
-                <span className="text-sm">Enable Web Search</span>
-              </>}
+              {webSearch ? (
+                <>
+                  <span className="text-sm">Disable Web Search</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm">Enable Web Search</span>
+                </>
+              )}
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
       <div className="mt-2 text-[11px] text-muted-foreground flex items-center gap-2 px-1">
         <span className="inline-flex items-center gap-1">
-          <span className={cn("inline-block size-2 rounded-full", webSearch ? "bg-emerald-500" : "bg-muted")}></span>
-          Web search {webSearch ? "enabled" : "disabled"}
+          <span
+            className={cn(
+              'inline-block size-2 rounded-full',
+              webSearch ? 'bg-emerald-500' : 'bg-muted',
+            )}
+          ></span>
+          Web search {webSearch ? 'enabled' : 'disabled'}
         </span>
         <span>•</span>
         <span>Press Enter to send, Shift+Enter for new line</span>

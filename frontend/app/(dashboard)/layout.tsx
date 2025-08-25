@@ -17,9 +17,9 @@ import {
 } from '@/components/ui/sidebar';
 import { NavUser } from '@/app/(dashboard)/dashboard/components/NavUser';
 import { ThemeToggle } from '@/components/theme-toggle';
-import Logo from "@/components/logo";
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import Logo from '@/components/logo';
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import * as jwt from 'jsonwebtoken';
 
 export default async function DashboardLayout({
@@ -35,7 +35,7 @@ export default async function DashboardLayout({
   }
 
   try {
-    jwt.verify(user?.value || "", process.env.SECRET_KEY || "");
+    jwt.verify(user?.value || '', process.env.SECRET_KEY || '');
   } catch (error) {
     return redirect('/login');
   }
@@ -63,7 +63,13 @@ export default async function DashboardLayout({
 
         <SidebarSeparator />
         <SidebarFooter>
-          <NavUser user={{ name: user?.name ?? 'User', email: (user as any)?.email ?? 'user@example.com', avatar }} />
+          <NavUser
+            user={{
+              name: user?.name ?? 'User',
+              email: (user as any)?.email ?? 'user@example.com',
+              avatar,
+            }}
+          />
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>

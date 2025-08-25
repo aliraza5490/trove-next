@@ -1,13 +1,16 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import createSSE from '@/lib/sse';
 import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
+import { useParams, useRouter } from 'next/navigation';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { useParams } from 'next/navigation';
-import { Message, SelectedDoc } from './types';
+import { useChatQuery } from '../chat/[chatId]/hooks';
+import { createChatMutation } from '../hooks';
 import Composer from './chat/Composer';
 import MessageList from './chat/MessageList';
-import { useChatQuery } from '../chat/[chatId]/hooks';
+import { Message, SelectedDoc } from './types';
 
 function useAutoResizeTextarea<T extends HTMLTextAreaElement>() {
   const ref = useRef<T>(null);
@@ -21,8 +24,6 @@ function useAutoResizeTextarea<T extends HTMLTextAreaElement>() {
 }
 
 export default function ChatClient() {
-  const params = useParams();
-
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [webSearch, setWebSearch] = useState(false);
@@ -30,6 +31,26 @@ export default function ChatClient() {
   const [selectedDocs, setSelectedDocs] = useState<SelectedDoc[]>([]);
   const [chatId, setChatId] = useState<string | null>(null);
   const [inConversation, setInConversation] = useState(false);
+  const [isNewChat, setIsNewChat] = useState(true);
+  const [isSending, setIsSending] = useState(false);
+
+  const params = useParams();
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const { mutateAsync: createChat, isPending: isCreatingChat } =
+    createChatMutation();
+  const { data: chatData, isLoading } = useChatQuery(chatId);
+
+  useEffect(() => {
+    const localNewMessage = localStorage.getItem('newMessage');
+    if (localNewMessage && chatId && !isStreaming) {
+      handleSend(localNewMessage);
+      localStorage.removeItem('newMessage');
+    }
+    if (!localNewMessage) {
+      setIsNewChat(false);
+    }
+  }, [chatId]);
 
   useEffect(() => {
     setInConversation(!!params.chatId || messages.length > 0);
@@ -41,18 +62,18 @@ export default function ChatClient() {
     }
   }, [params.chatId]);
 
-  const { data: chatData } = useChatQuery(chatId);
-
   useEffect(() => {
-    if (chatData?.messages) {
+    if (chatData && !isNewChat) {
       setMessages(
-        chatData.messages.map((m: any) => ({
-          ...m,
-          content: m.message.trim(),
-        })),
+        chatData.messages.map((m: any) => {
+          return {
+            ...m,
+            content: m.message,
+          };
+        }),
       );
     }
-  }, [chatData?.messages]);
+  }, [!!chatData, isNewChat]);
 
   const { ref: textareaRef, resize } =
     useAutoResizeTextarea<HTMLTextAreaElement>();
@@ -66,22 +87,19 @@ export default function ChatClient() {
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, isStreaming]);
 
-  const mockGenerate = async (prompt: string) => {
-    const base = webSearch
-      ? `I searched the web and found some relevant info about: ${prompt}. `
-      : `Here's a response to: ${prompt}. `;
-    const filler =
-      'This is a simulated streaming reply to showcase the chat UI behavior. You can wire this up to your API later for real responses.';
-    const full = base + filler;
-    const chunks = full.split(/(\s+)/);
-    return chunks;
-  };
-
-  const handleSend = async () => {
-    if (!input.trim() || isStreaming) return;
-    const text = input.trim();
+  const handleSend = async (text: string) => {
+    if (!text.trim() || isStreaming || isSending) return;
     setInput('');
     setSelectedDocs([]);
+    setIsSending(true);
+    if (!chatId) {
+      // for new chats - first message
+      if (isCreatingChat) return;
+      const res = await createChat(text);
+      localStorage.setItem('newMessage', text);
+      await queryClient.invalidateQueries({ queryKey: ['chat-list'] });
+      return router.push(`/dashboard/chat/${res.id}`);
+    }
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -96,18 +114,42 @@ export default function ChatClient() {
       { id: assistantId, role: 'assistant', content: '' },
     ]);
 
-    setIsStreaming(true);
-    const chunks = await mockGenerate(text);
+    const messageSSE = createSSE(
+      `/chat/message?message=${encodeURIComponent(text)}&chat_id=${chatId}`,
+    );
 
-    for (const chunk of chunks) {
-      await new Promise((r) => setTimeout(r, 30));
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId ? { ...m, content: m.content + chunk } : m,
-        ),
-      );
-    }
-    setIsStreaming(false);
+    messageSSE.onmessage = (event) => {
+      setIsStreaming(true);
+      console.log('event', event);
+      try {
+        const data = JSON.parse(event.data);
+        if (data?.type === 'message') {
+          const message = data.content;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: m.content + message } : m,
+            ),
+          );
+        }
+        if (data?.type === 'end') {
+          (async () => {
+            const chatId = data.content;
+            await queryClient.invalidateQueries({ queryKey: ['chat', chatId] });
+            setIsStreaming(false);
+          })();
+        }
+      } catch {
+        console.error('Error parsing SSE event data');
+        setIsStreaming(false);
+        setIsSending(false);
+      }
+    };
+
+    messageSSE.onerror = (err) => {
+      setIsStreaming(false);
+      setIsSending(false);
+      messageSSE.close();
+    };
   };
 
   const handleUploadClick = () => {
@@ -142,6 +184,14 @@ export default function ChatClient() {
   const removeSelectedDoc = (id: string) => {
     setSelectedDocs((prev) => prev.filter((d) => d.id !== id));
   };
+
+  if (isLoading && !isNewChat) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center">
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-full">
@@ -180,8 +230,8 @@ export default function ChatClient() {
             textareaRef={textareaRef}
             input={input}
             setInput={setInput}
-            onSend={handleSend}
-            isStreaming={isStreaming}
+            onSend={() => handleSend(input)}
+            disabled={isSending}
             webSearch={webSearch}
             setWebSearch={setWebSearch}
             onUploadClick={handleUploadClick}
