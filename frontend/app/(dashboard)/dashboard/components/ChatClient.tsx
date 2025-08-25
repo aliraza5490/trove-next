@@ -174,6 +174,9 @@ export default function ChatClient() {
         if (toAdd.length)
           toast.success(
             `Added ${toAdd.length} file${toAdd.length > 1 ? 's' : ''}`,
+            {
+              id: 'add-docs',
+            },
           );
         return next;
       });
