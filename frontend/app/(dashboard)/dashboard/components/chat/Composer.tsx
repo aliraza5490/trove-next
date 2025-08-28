@@ -138,13 +138,15 @@ function Composer(props: {
           type="button"
           aria-label="Attach"
           onClick={onUploadClick}
-          className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-md hover:bg-accent"
+          className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-md hover:bg-accent border bg-secondary flex items-center justify-center h-8 gap-1.5 px-3 has-[>svg]:px-2.5"
         >
-          <Paperclip className="size-5" />
+          Files
+          <Paperclip className="size-4" />
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="shrink-0">
+              Tools
               <Wrench className="size-4" />
             </Button>
           </DropdownMenuTrigger>

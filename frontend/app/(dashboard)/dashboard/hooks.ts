@@ -1,5 +1,6 @@
 import { clientAPI } from '@/lib/client-api';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 export const useChatListQuery = () => {
@@ -25,6 +26,44 @@ export const createChatMutation = () => {
     },
     onSuccess: () => {
       toast.success('Chat created');
+    },
+  });
+};
+
+export const deleteChatMutation = () => {
+  return useMutation({
+    mutationFn: async (chatId: string) => {
+      const { data } = await clientAPI.delete(`/chat/${chatId}/delete`);
+      return data;
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+    onSuccess: () => {
+      toast.success('Chat deleted');
+    },
+  });
+};
+
+export const updateChatMutation = () => {
+  return useMutation({
+    mutationFn: async ({
+      chatId,
+      newTitle,
+    }: {
+      chatId: string;
+      newTitle: string;
+    }) => {
+      const { data } = await clientAPI.patch(`/chat/${chatId}/update`, {
+        new_title: newTitle,
+      });
+      return data;
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+    onSuccess: () => {
+      toast.success('Chat updated');
     },
   });
 };

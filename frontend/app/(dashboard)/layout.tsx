@@ -1,5 +1,5 @@
-import NewConversation from '@/app/(dashboard)/dashboard/components/NewConversation';
-import RecentChats from '@/app/(dashboard)/dashboard/components/RecentChats';
+import Logo from '@/components/logo';
+import { ThemeToggle } from '@/components/theme-toggle';
 import {
   Sidebar,
   SidebarContent,
@@ -15,12 +15,13 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { NavUser } from '@/app/(dashboard)/dashboard/components/NavUser';
-import { ThemeToggle } from '@/components/theme-toggle';
-import Logo from '@/components/logo';
-import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
 import * as jwt from 'jsonwebtoken';
+import { FolderKanban, Plus } from 'lucide-react';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import NavButton from './dashboard/components/NavButton';
+import { NavUser } from './dashboard/components/NavUser';
+import RecentChats from './dashboard/components/RecentChats';
 
 export default async function DashboardLayout({
   children,
@@ -47,7 +48,17 @@ export default async function DashboardLayout({
       <Sidebar>
         <SidebarHeader>
           <Logo link="/dashboard" />
-          <NewConversation />
+          <NavButton
+            icon={<Plus className="size-4" />}
+            link="/dashboard"
+            text="New chat"
+          />
+          <NavButton
+            icon={<FolderKanban className="size-4" />}
+            link="/dashboard/knowledge-base"
+            text="Manage Knowledge Base"
+            variant="outline"
+          />
         </SidebarHeader>
 
         <SidebarContent>

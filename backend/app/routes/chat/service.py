@@ -1,7 +1,8 @@
+import shutil
 from uuid import UUID
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, UploadFile
 from langchain_groq import ChatGroq
 from langchain_core.messages import trim_messages
 from langchain_core.messages.utils import count_tokens_approximately
@@ -9,7 +10,9 @@ from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 import json
+from pathlib import Path
 
+from ...utilities.ocr import extract_text
 from ...settings import settings
 from ...models.user import User
 from ...models.message import Message, Role
@@ -56,7 +59,31 @@ class ChatService:
         return chat
 
     @classmethod
-    async def create_message(cls, message: str, chat_id: str, session: AsyncSession):
+    async def create_message(cls, message: str, chat_id: str, file: UploadFile, session: AsyncSession, user: User):
+        file_info = None
+        if file:
+            # if not file.content_type.startswith("image/"):
+            #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be an image")
+
+            if file.size > 10 * 1024 * 1024:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be less than 10mb")
+
+            UPLOAD_DIR = Path(f"uploads/{user.id}")
+            UPLOAD_DIR.mkdir(parents=True, exist_ok=True)  # ensure the folder exists
+            # first write file to the path
+            file_location = UPLOAD_DIR / file.filename
+            with file_location.open("wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            file_info = {
+                "text": extract_text(file_location),
+                "file_location": file_location
+            }
+
+        if file_info:
+            print("OCR", file_info["text"])
+            
+
         llm = ChatGroq(
             model="openai/gpt-oss-20b",
             temperature=0,
@@ -131,7 +158,8 @@ class ChatService:
             }
             yield f"data: {json.dumps(event)}\n\n"
 
-        return StreamingResponse(generate(), media_type="text/event-stream")
+        # return StreamingResponse(generate(), media_type="text/event-stream")
+        return StreamingResponse(generate(), media_type="text/plain")
 
     @classmethod
     async def get_chat_history(cls, chat_id: str, user: User, session: AsyncSession):

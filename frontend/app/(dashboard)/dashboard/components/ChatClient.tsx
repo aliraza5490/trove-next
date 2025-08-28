@@ -11,6 +11,8 @@ import { createChatMutation } from '../hooks';
 import Composer from './chat/Composer';
 import MessageList from './chat/MessageList';
 import { Message, SelectedDoc } from './types';
+import { clientAPI } from '@/lib/client-api';
+import { getAuthToken } from '@/lib/auth';
 
 function useAutoResizeTextarea<T extends HTMLTextAreaElement>() {
   const ref = useRef<T>(null);
@@ -33,6 +35,7 @@ export default function ChatClient() {
   const [inConversation, setInConversation] = useState(false);
   const [isNewChat, setIsNewChat] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
 
   const params = useParams();
   const queryClient = useQueryClient();
@@ -114,42 +117,103 @@ export default function ChatClient() {
       { id: assistantId, role: 'assistant', content: '' },
     ]);
 
-    const messageSSE = createSSE(
-      `/chat/message?message=${encodeURIComponent(text)}&chat_id=${chatId}`,
+    const data = new FormData();
+    data.append('message', text);
+    data.append('chat_id', chatId);
+    console.log(file);
+
+    if (file) {
+      data.append('file', file);
+    }
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/chat/message`,
+      {
+        method: 'POST',
+        body: data,
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      },
     );
 
-    messageSSE.onmessage = (event) => {
-      setIsStreaming(true);
-      console.log('event', event);
-      try {
-        const data = JSON.parse(event.data);
-        if (data?.type === 'message') {
-          const message = data.content;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: m.content + message } : m,
-            ),
-          );
-        }
-        if (data?.type === 'end') {
-          (async () => {
-            const chatId = data.content;
-            await queryClient.invalidateQueries({ queryKey: ['chat', chatId] });
-            setIsStreaming(false);
-          })();
-        }
-      } catch {
-        console.error('Error parsing SSE event data');
-        setIsStreaming(false);
-        setIsSending(false);
-      }
-    };
+    if (res.body) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
 
-    messageSSE.onerror = (err) => {
-      setIsStreaming(false);
-      setIsSending(false);
-      messageSSE.close();
-    };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const data = decoder.decode(value);
+        const chunks = data
+          .split('data: ')
+          .filter(Boolean)
+          .map((chunk) => JSON.parse(chunk));
+
+        for (const chunk of chunks) {
+          console.log('Chunk:', chunk);
+          if (chunk?.type === 'message') {
+            const message = chunk.content;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: m.content + message }
+                  : m,
+              ),
+            );
+          }
+          if (chunk?.type === 'end') {
+            (async () => {
+              const chatId = chunk.content;
+              await queryClient.invalidateQueries({
+                queryKey: ['chat', chatId],
+              });
+              setIsStreaming(false);
+              setIsSending(false);
+            })();
+          }
+        }
+        console.log('Chunk:', chunks);
+      }
+    }
+
+    console.log('Stream ended');
+    // const messageSSE = createSSE(
+    //   `/chat/message?message=${encodeURIComponent(text)}&chat_id=${chatId}`,
+    // );
+
+    // messageSSE.onmessage = (event) => {
+    //   setIsStreaming(true);
+    //   console.log('event', event);
+    //   try {
+    //     const data = JSON.parse(event.data);
+    //     if (data?.type === 'message') {
+    //       const message = data.content;
+    //       setMessages((prev) =>
+    //         prev.map((m) =>
+    //           m.id === assistantId ? { ...m, content: m.content + message } : m,
+    //         ),
+    //       );
+    //     }
+    //     if (data?.type === 'end') {
+    //       (async () => {
+    //         const chatId = data.content;
+    //         await queryClient.invalidateQueries({ queryKey: ['chat', chatId] });
+    //         setIsStreaming(false);
+    //       })();
+    //     }
+    //   } catch {
+    //     console.error('Error parsing SSE event data');
+    //     setIsStreaming(false);
+    //     setIsSending(false);
+    //   }
+    // };
+
+    // messageSSE.onerror = (err) => {
+    //   setIsStreaming(false);
+    //   setIsSending(false);
+    //   messageSSE.close();
+    // };
   };
 
   const handleUploadClick = () => {
@@ -159,6 +223,7 @@ export default function ChatClient() {
   const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (files.length) {
+      setFile(files[0]);
       const mapped = files.map((f) => ({
         id: crypto.randomUUID(),
         name: f.name,
@@ -210,7 +275,7 @@ export default function ChatClient() {
             <div
               ref={scrollRef}
               className={cn(
-                'h-[calc(100dvh-15.6rem)] overflow-y-auto pr-1 sm:pr-2',
+                'h-[calc(100dvh-15.6rem)] overflow-y-auto',
                 selectedDocs.length > 0 && 'h-[calc(100dvh-18.6rem)]',
               )}
             >
@@ -228,7 +293,7 @@ export default function ChatClient() {
             : 'top-1/2 -translate-y-1/2',
         )}
       >
-        <div className="pointer-events-auto w-full max-w-3xl px-2 sm:px-4">
+        <div className="pointer-events-auto w-full max-w-3xl px-4 md:px-0">
           <Composer
             textareaRef={textareaRef}
             input={input}
@@ -249,7 +314,6 @@ export default function ChatClient() {
         type="file"
         className="hidden"
         onChange={onFileSelected}
-        multiple
         accept=".pdf,.txt,.md,.doc,.docx,.csv,.json,.png,.jpg,.jpeg"
       />
     </div>
