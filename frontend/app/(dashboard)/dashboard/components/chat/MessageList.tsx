@@ -85,11 +85,11 @@ function ChatBubble({
                       {children}
                     </code>
                   ) : (
-                    <pre className="my-2 overflow-x-auto rounded bg-muted-foreground/10 p-3 text-xs">
+                    <span className="my-2 overflow-x-auto rounded bg-muted-foreground/10 p-3 text-xs">
                       <code className={className} {...props}>
                         {children}
                       </code>
-                    </pre>
+                    </span>
                   ),
               }}
             >

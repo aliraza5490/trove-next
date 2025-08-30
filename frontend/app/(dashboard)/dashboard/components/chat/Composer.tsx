@@ -22,7 +22,6 @@ import {
 import { cn } from '@/lib/utils';
 
 function Composer(props: {
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   input: string;
   setInput: (v: string) => void;
   onSend: () => void;
@@ -34,7 +33,6 @@ function Composer(props: {
   onRemoveDoc: (id: string) => void;
 }) {
   const {
-    textareaRef,
     input,
     setInput,
     onSend,
@@ -105,7 +103,6 @@ function Composer(props: {
 
       <div className="relative flex items-end gap-2">
         <Textarea
-          ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}

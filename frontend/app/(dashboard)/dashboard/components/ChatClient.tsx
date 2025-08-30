@@ -1,29 +1,15 @@
 'use client';
-
-import createSSE from '@/lib/sse';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useChatQuery } from '../chat/[chatId]/hooks';
 import { createChatMutation } from '../hooks';
 import Composer from './chat/Composer';
 import MessageList from './chat/MessageList';
 import { Message, SelectedDoc } from './types';
-import { clientAPI } from '@/lib/client-api';
 import { getAuthToken } from '@/lib/auth';
-
-function useAutoResizeTextarea<T extends HTMLTextAreaElement>() {
-  const ref = useRef<T>(null);
-  const resize = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
-  }, []);
-  return { ref, resize } as const;
-}
 
 export default function ChatClient() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -47,7 +33,7 @@ export default function ChatClient() {
   useEffect(() => {
     const localNewMessage = localStorage.getItem('newMessage');
     if (localNewMessage && chatId && !isStreaming) {
-      handleSend(localNewMessage);
+      sendMessage(localNewMessage);
       localStorage.removeItem('newMessage');
     }
     if (!localNewMessage) {
@@ -56,11 +42,13 @@ export default function ChatClient() {
   }, [chatId]);
 
   useEffect(() => {
-    setInConversation(!!params.chatId || messages.length > 0);
-  }, [params.chatId, messages.length]);
+    if (params.chatId && messages.length && !inConversation) {
+      setInConversation(!!params.chatId || messages.length > 0);
+    }
+  }, [params.chatId, messages.length, inConversation]);
 
   useEffect(() => {
-    if (params?.chatId && typeof params.chatId === 'string') {
+    if (params?.chatId && typeof params.chatId === 'string' && !chatId) {
       setChatId(params.chatId);
     }
   }, [params.chatId]);
@@ -76,11 +64,7 @@ export default function ChatClient() {
         }),
       );
     }
-  }, [!!chatData, isNewChat]);
-
-  const { ref: textareaRef, resize } =
-    useAutoResizeTextarea<HTMLTextAreaElement>();
-  useEffect(() => resize(), [input, resize]);
+  }, [chatData, isNewChat]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -90,7 +74,7 @@ export default function ChatClient() {
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, isStreaming]);
 
-  const handleSend = async (text: string) => {
+  const sendMessage = async (text: string) => {
     if (!text.trim() || isStreaming || isSending) return;
     setInput('');
     setSelectedDocs([]);
@@ -253,6 +237,10 @@ export default function ChatClient() {
     setSelectedDocs((prev) => prev.filter((d) => d.id !== id));
   };
 
+  const handleSend = () => {
+    sendMessage(input);
+  };
+
   if (isLoading && !isNewChat) {
     return (
       <div className="absolute inset-0 flex items-center justify-center">
@@ -295,10 +283,9 @@ export default function ChatClient() {
       >
         <div className="pointer-events-auto w-full max-w-3xl px-4 md:px-0">
           <Composer
-            textareaRef={textareaRef}
             input={input}
             setInput={setInput}
-            onSend={() => handleSend(input)}
+            onSend={handleSend}
             disabled={isSending}
             webSearch={webSearch}
             setWebSearch={setWebSearch}
