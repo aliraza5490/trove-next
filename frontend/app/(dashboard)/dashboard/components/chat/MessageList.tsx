@@ -52,10 +52,11 @@ function ChatBubble({
         )}
       >
         {content ? (
-          <div className="overflow-x-auto">
+          <div suppressHydrationWarning className="overflow-x-auto">
             <Markdown
               remarkPlugins={[remarkGfm]}
               components={{
+                html: (props) => <html suppressHydrationWarning {...props} />,
                 table: (props) => (
                   <table
                     className="w-full border-collapse text-left my-2"

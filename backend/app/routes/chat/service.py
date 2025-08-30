@@ -12,11 +12,11 @@ from fastapi.responses import StreamingResponse
 import json
 from pathlib import Path
 
-from ...utilities.ocr import extract_text
-from ...settings import settings
-from ...models.user import User
-from ...models.message import Message, Role
-from ...models.chat import Chat
+from app.utilities.ocr import extract_text
+from app.settings import settings
+from app.models.user import TokenData, User
+from app.models.message import Message, Role
+from app.models.chat import Chat
 
 
 class MessageCreate(BaseModel):
@@ -26,7 +26,7 @@ class MessageCreate(BaseModel):
 
 class ChatService:
     @classmethod
-    async def create_chat(cls, message: str, user: User, session: AsyncSession):
+    async def create_chat(cls, message: str, user: TokenData, session: AsyncSession):
         llm = ChatGroq(
             model="openai/gpt-oss-20b",
             temperature=0,
@@ -59,7 +59,7 @@ class ChatService:
         return chat
 
     @classmethod
-    async def create_message(cls, message: str, chat_id: str, file: UploadFile, session: AsyncSession, user: User):
+    async def create_message(cls, message: str, chat_id: str, file: UploadFile, session: AsyncSession, user: TokenData):
         file_info = None
         if file:
             # if not file.content_type.startswith("image/"):
@@ -162,7 +162,7 @@ class ChatService:
         return StreamingResponse(generate(), media_type="text/plain")
 
     @classmethod
-    async def get_chat_history(cls, chat_id: str, user: User, session: AsyncSession):
+    async def get_chat_history(cls, chat_id: str, user: TokenData, session: AsyncSession):
         # Fetch chat
         chat_result = await session.exec(select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id))
         if not chat_result:
@@ -189,7 +189,7 @@ class ChatService:
         }
 
     @classmethod
-    async def get_chat_list(cls, session: AsyncSession, user: User):
+    async def get_chat_list(cls, session: AsyncSession, user: TokenData):
         result = await session.exec(select(Chat).where(Chat.user_id == user.id).order_by(Chat.created_at.desc()))
         chats = result.all()
         return chats

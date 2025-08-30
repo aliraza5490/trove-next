@@ -1,10 +1,12 @@
-from pydantic import BaseModel
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routes.api_router import api_router
-from contextlib import asynccontextmanager
-from .utilities.db import get_session, create_db_and_tables
-from .settings import settings
+from pydantic import BaseModel
+
+from app.routes.api_router import api_router
+from app.settings import settings
+from app.utilities.db import get_session, create_db_and_tables
 
 
 @asynccontextmanager

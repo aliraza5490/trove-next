@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends
+
 from .service import AuthService
-from ...utilities.tags import Tags
-from ...models.user import User, UserLogin, UserCreate
-from ...utilities.auth import get_user_from_token
-from ...utilities.db import get_session
+from app.models.user import User, UserLogin, UserCreate, TokenData
+from app.utilities.auth import get_user_from_token
+from app.utilities.db import get_session
+from app.utilities.tags import Tags
 
 auth_router = APIRouter(prefix="/auth", tags=[Tags.users])
 
@@ -14,7 +15,7 @@ async def register(user: UserCreate, session = Depends(get_session)):
 
 
 @auth_router.post("/protected")
-def protected(user: User = Depends(get_user_from_token)):
+def protected(user: TokenData = Depends(get_user_from_token)):
     return AuthService.protected(user)
 
 @auth_router.post("/login")

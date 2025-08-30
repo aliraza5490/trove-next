@@ -1,16 +1,20 @@
-from ...models.user import User, UserCreate, UserLogin
-from fastapi import status, HTTPException
-from sqlmodel import select, Session
-from ...utilities.auth import pwd_context, create_access_token
-from ...settings import settings
 from datetime import timedelta
-from ...models.user import User as UserModel 
+
+from fastapi import status, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
+from app.models.user import TokenData, UserCreate, UserLogin
+from app.models.user import User as UserModel
+from app.settings import settings
+from app.utilities.auth import pwd_context, create_access_token
+
 
 class AuthService:
     @classmethod
-    async def register(cls, user: UserCreate, session: Session):
+    async def register(cls, user: UserCreate, session: AsyncSession):
         # Check if user with this email already exists
-        existing_user = await session.exec(select(UserModel).where(
+        existing_user = await session.execute(select(UserModel).where(
             UserModel.email == user.email
         ))
 
@@ -44,12 +48,12 @@ class AuthService:
         }
     
     @classmethod
-    def protected(cls, user: User):
-        return {"message": "Protected route accessed", "user": user.model_dump(exclude="hashed_password")}
+    def protected(cls, user: TokenData):
+        return {"message": "Protected route accessed", "user": user.model_dump(exclude=set("hashed_password"))}
 
     @classmethod
-    async def login(cls, user: UserLogin, session: Session):
-        user_data = await session.exec(select(UserModel).where(
+    async def login(cls, user: UserLogin, session: AsyncSession):
+        user_data = await session.execute(select(UserModel).where(
             UserModel.email == user.email, 
             UserModel.isActive == True
         ))
@@ -71,6 +75,6 @@ class AuthService:
             )
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"email": user.email}, expires_delta=access_token_expires
+            data={"id": str(user_data.id), "email": user.email}, expires_delta=access_token_expires
         )
         return {"access_token": access_token, "token_type": "bearer"}

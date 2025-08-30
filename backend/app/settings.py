@@ -1,5 +1,6 @@
 import warnings
 from typing import Annotated, Any, Literal
+
 from pydantic import (
     AnyUrl,
     BeforeValidator,
@@ -10,6 +11,7 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
+
 
 def parse_cors(v: Any) -> list[str] | str:
     if isinstance(v, str) and not v.startswith("["):
@@ -52,7 +54,7 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
-        return self.POSTGRES_URL.replace("postgresql", "postgresql+psycopg")
+        return PostgresDsn(self.POSTGRES_URL.replace("postgresql", "postgresql+psycopg"))
 
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str

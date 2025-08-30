@@ -1,11 +1,12 @@
-from passlib.context import CryptContext
-from fastapi.security import HTTPBearer
-from fastapi import HTTPException, status, Depends
-from typing import Optional
 from datetime import datetime, timedelta, timezone
-from sqlmodel import select
-from ..settings import settings
+from typing import Optional
+
 import jwt
+from fastapi import HTTPException, status, Depends
+from fastapi.security import HTTPBearer
+from passlib.context import CryptContext
+
+from app.settings import settings
 from .db import get_session
 
 # These would be imported from your config or main module
@@ -39,7 +40,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 async def get_user_from_token(
-    token: str = Depends(auth_scheme),
+    token = Depends(auth_scheme),
     session = Depends(get_session)  # This will be overridden when used
 ):
     """
@@ -54,8 +55,7 @@ async def get_user_from_token(
     """
 
     # Move this import inside the function to avoid circular imports
-    from ..models.user import TokenData, User
-    
+    from ..models.user import TokenData
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -66,20 +66,21 @@ async def get_user_from_token(
     try:
         payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("email")
-        if email is None:
+        user_id: str = payload.get("id")
+        if email is None or id is None:
             raise credentials_exception
-        token_data = TokenData(email=email)
+        token_data = TokenData(id=user_id, email=email)
+        return token_data
     except jwt.PyJWTError as e:
         raise credentials_exception
-    
-    # Query the user from database
-    user = await session.exec(select(User).where(User.email == token_data.email))
-    user = user.first()
-    if user is None:
-        raise credentials_exception
+    # # Query the user from database
+    # user = await session.exec(select(User).where(User.email == token_data.email))
+    # user = user.first()
+    # if user is None:
+    #     raise credentials_exception
         
-    # Check if user is active
-    if not user.isActive:
-        raise HTTPException(status_code=400, detail="Inactive user")
+    # # Check if user is active
+    # if not user.isActive:
+    #     raise HTTPException(status_code=400, detail="Inactive user")
         
-    return user
+    # return user

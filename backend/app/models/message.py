@@ -1,9 +1,11 @@
 import enum
-from typing import Optional
-from sqlmodel import Column, DateTime, SQLModel, Field, Relationship, func
-from uuid import UUID, uuid4
-from pydantic import ConfigDict
 from datetime import datetime, timezone
+from typing import Optional
+from uuid import UUID, uuid4
+
+from pydantic import ConfigDict
+from sqlmodel import Column, DateTime, SQLModel, Field, Relationship, func
+
 
 class Role(str, enum.Enum):  # str + Enum = easier JSON serialization
     SYSTEM = "system"
@@ -21,7 +23,8 @@ class Message(MessageBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     chat_id: UUID = Field(foreign_key="chat.id", ondelete="CASCADE")
     # Avoid async lazy-load issues by using selectin loading
-    chat: "Chat" = Relationship(back_populates="messages", sa_relationship_kwargs={"lazy": "selectin"})
+    chat: "Chat" = Relationship(
+        back_populates="messages", sa_relationship_kwargs={"lazy": "selectin"})
     role: Role
     created_at: Optional[datetime] = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -49,6 +52,5 @@ class MessageCreate(MessageBase):
             ]
         }
     )
-    
-    
-from ..models.chat import Chat
+
+from app.models.chat import Chat
