@@ -1,23 +1,10 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from app.lifecyle import lifespan
 from app.routes.api_router import api_router
 from app.settings import settings
-from app.utilities.db import get_session, create_db_and_tables
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Setup: Initialize before app starts
-    get_session()
-    await create_db_and_tables()
-    yield  # This is crucial - it yields control back to FastAPI
-    # Cleanup: Code after this will run when app shuts down
-    # You can add cleanup code here if needed
-    pass
 
 app = FastAPI(
     title="Todo API",

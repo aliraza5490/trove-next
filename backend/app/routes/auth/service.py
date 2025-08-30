@@ -58,6 +58,8 @@ class AuthService:
             UserModel.isActive == True
         ))
         user_data = user_data.first()
+        if user_data:
+            user_data = user_data[0]
 
         if not user_data:
             raise HTTPException(
@@ -65,7 +67,6 @@ class AuthService:
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-            
         does_pass_match = pwd_context.verify(user.password, user_data.hashed_password)
         if not does_pass_match:
             raise HTTPException(
