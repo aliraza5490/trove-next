@@ -5,9 +5,11 @@ import jwt
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer
 from passlib.context import CryptContext
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.settings import settings
 from .db import get_session
+from ..models.user import TokenData, User
 
 # These would be imported from your config or main module
 # You might want to move these to a dedicated config module
@@ -15,19 +17,21 @@ SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
-
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # auth scheme for token
 auth_scheme = HTTPBearer(description="Token")
 
+
 def get_password_hash(password):
     return pwd_context.hash(password)
+
 
 # Authentication functions
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
+
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -39,9 +43,23 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+
+async def get_db_user(token_data: TokenData, session: AsyncSession):
+    # Query the user from database
+    user, = await session.exec(select(User).where(User.email == token_data.email).first())
+    if user is None:
+        raise credentials_exception
+
+    # Check if user is active
+    if not user.isActive:
+        raise HTTPException(status_code=400, detail="Inactive user")
+
+    return user
+
+
 async def get_user_from_token(
-    token = Depends(auth_scheme),
-    session = Depends(get_session)  # This will be overridden when used
+        token=Depends(auth_scheme),
+        session=Depends(get_session)  # This will be overridden when used
 ):
     """
     A reusable dependency that validates a JWT token and returns the current user.
@@ -62,7 +80,7 @@ async def get_user_from_token(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("email")
@@ -73,14 +91,3 @@ async def get_user_from_token(
         return token_data
     except jwt.PyJWTError as e:
         raise credentials_exception
-    # # Query the user from database
-    # user = await session.exec(select(User).where(User.email == token_data.email))
-    # user = user.first()
-    # if user is None:
-    #     raise credentials_exception
-        
-    # # Check if user is active
-    # if not user.isActive:
-    #     raise HTTPException(status_code=400, detail="Inactive user")
-        
-    # return user

@@ -12,13 +12,15 @@ Notes:
 - PDF OCR fallback uses pdf2image, which requires poppler utilities.
 """
 import os
-from bs4 import BeautifulSoup
-from PIL import Image
-import pytesseract
-from pdf2image import convert_from_path
+
 import pdfplumber
-from pptx import Presentation
+import pytesseract
+from PIL import Image
+from bs4 import BeautifulSoup
 from docx import Document
+from pdf2image import convert_from_path
+from pptx import Presentation
+
 
 # DOCX
 
@@ -139,7 +141,13 @@ def extract_html(path):
     return soup.get_text(separator="\n", strip=True)
 
 
-# Main Function
+def extract_text_file(path) -> str:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            text = f.read()
+            return text
+    except UnicodeDecodeError:
+        return "[Error] Could not decode binary data with encoding: {}".format(encoding)
 
 
 def extract_text(path):
@@ -166,5 +174,7 @@ def extract_text(path):
         return extract_image(path)
     elif ext in [".html", ".htm"]:
         return extract_html(path)
+    elif ext in [".txt"]:
+        return extract_text_file(path)
     else:
         raise ValueError(f"Unsupported file type: {ext}")

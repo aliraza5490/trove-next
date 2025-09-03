@@ -1,22 +1,28 @@
+import json
 import shutil
+from pathlib import Path
 from uuid import UUID
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
+
 from fastapi import HTTPException, status, UploadFile
-from langchain_groq import ChatGroq
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
+from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from langchain_core.messages import trim_messages
 from langchain_core.messages.utils import count_tokens_approximately
-from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
+from langchain_groq import ChatGroq
 from pydantic import BaseModel
-from fastapi.responses import StreamingResponse
-import json
-from pathlib import Path
+from sqlalchemy.orm import selectinload
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.utilities.ocr import extract_text
-from app.settings import settings
-from app.models.user import TokenData, User
-from app.models.message import Message, Role
 from app.models.chat import Chat
+from app.models.file import File
+from app.models.message import Message, Role
+from app.models.user import TokenData
+from app.settings import settings
+from app.utilities.files import is_valid_file_type
+from app.utilities.ocr import extract_text
+from app.utilities.vector_store import text_splitter, get_vector_store
 
 
 class MessageCreate(BaseModel):
@@ -59,30 +65,73 @@ class ChatService:
         return chat
 
     @classmethod
-    async def create_message(cls, message: str, chat_id: str, file: UploadFile, session: AsyncSession, user: TokenData):
-        file_info = None
-        if file:
-            # if not file.content_type.startswith("image/"):
-            #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be an image")
+    async def create_message(cls, message: str, chat_id: str, user: TokenData,
+                             session: AsyncSession, uploaded_files: list[UploadFile] = None):
+        chat_uuid: UUID | None = None
+        if chat_id:
+            try:
+                chat_uuid = UUID(chat_id)
+            except ValueError:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat_id")
 
-            if file.size > 10 * 1024 * 1024:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be less than 10mb")
+        chat_result = await session.exec(select(Chat).where(Chat.id == chat_uuid))
+        chat = chat_result.first()
 
-            UPLOAD_DIR = Path(f"uploads/{user.id}")
-            UPLOAD_DIR.mkdir(parents=True, exist_ok=True)  # ensure the folder exists
-            # first write file to the path
-            file_location = UPLOAD_DIR / file.filename
-            with file_location.open("wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
+        if not chat:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
 
-            file_info = {
-                "text": extract_text(file_location),
-                "file_location": file_location
-            }
+        user_message_doc = Message(
+            chat=chat,
+            message=message,
+            role=Role.USER,
+        )
+        session.add(user_message_doc)
 
-        if file_info:
-            print("OCR", file_info["text"])
-            
+        files = []
+        vector_store = await get_vector_store()
+        if uploaded_files:
+            for uploaded_file in uploaded_files:
+                if not is_valid_file_type(uploaded_file.content_type):
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                        detail=f"File must be one of these {settings.VALID_UPLOAD_FILE_TYPES}")
+
+                if uploaded_file.size > 10 * 1024 * 1024:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be less than 10mb")
+
+                upload_dir = Path(f"uploads/{user.id}")
+                upload_dir.mkdir(parents=True, exist_ok=True)  # ensure the folder exists
+
+                file_location = upload_dir / uploaded_file.filename
+                with file_location.open("wb") as buffer:
+                    # noinspection PyTypeChecker
+                    shutil.copyfileobj(uploaded_file.file, buffer)
+
+                text = await run_in_threadpool(extract_text, path=str(file_location))
+
+                file = File(
+                    file_name=uploaded_file.filename,
+                    file_size=uploaded_file.size,
+                    file_path=str(file_location),
+                    user_id=user.id,
+                    message_id=user_message_doc.id
+                )
+                session.add(file)
+
+                docs = text_splitter.create_documents([text])
+                metadata = [{"type": "upload", "file_id": str(file.id)} for _ in docs]
+                docs = text_splitter.create_documents([text], metadatas=metadata)
+                await vector_store.aadd_documents(docs)
+
+                file_info = {
+                    "text": text,
+                    "file_location": file_location,
+                    "documents": docs,
+                    "file_id": file.id,
+                }
+                files.append(file_info)
+
+            if len(files):
+                print("Uploaded Files", files)
 
         llm = ChatGroq(
             model="openai/gpt-oss-20b",
@@ -94,30 +143,8 @@ class ChatService:
             api_key=settings.GROQ_API_KEY
         )
 
-        user_input = message
-        chat_uuid: UUID | None = None
-        if chat_id:
-            try:
-                chat_uuid = UUID(str(chat_id))
-            except ValueError:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat_id")
-
-        chat_result = await session.exec(select(Chat).where(Chat.id == chat_uuid))
-        chat = chat_result.first()
-
-        if not chat:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
-
-        # Persist the user's message for existing chats as well
-        user_message_row = Message(
-            chat=chat,
-            message=user_input,
-            role=Role.USER
-        )
-        session.add(user_message_row)
-        await session.commit()
-
-        chat_messages = await session.exec(select(Message).where(Message.chat_id == chat.id).order_by(Message.created_at.asc()))
+        chat_messages = await session.exec(
+            select(Message).where(Message.chat_id == chat.id).order_by(Message.created_at.asc()))
         messages = chat_messages.all()
 
         ROLE_MAP = {
@@ -126,7 +153,7 @@ class ChatService:
             Role.SYSTEM: SystemMessage,
         }
         lc_messages = [ROLE_MAP[msg.role](content=msg.message, id=str(msg.id)) for msg in messages]
-        trimmedMessages = trim_messages(
+        trimmed_messages = trim_messages(
             lc_messages,
             max_tokens=10000,
             strategy="last",
@@ -135,10 +162,13 @@ class ChatService:
             token_counter=count_tokens_approximately,
         )
 
+        # commit
+        await session.commit()
+
         # Use async streaming to avoid blocking event loop
         async def generate():
             full_response = ""
-            async for chunk in llm.astream(trimmedMessages):
+            async for chunk in llm.astream(trimmed_messages):
                 full_response += chunk.content
                 event = {
                     "content": chunk.content,
@@ -164,15 +194,17 @@ class ChatService:
     @classmethod
     async def get_chat_history(cls, chat_id: str, user: TokenData, session: AsyncSession):
         # Fetch chat
-        chat_result = await session.exec(select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id))
-        if not chat_result:
+        chat_query = await session.exec(select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id).limit(1))
+        chat = chat_query.first()
+        if not chat:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
-        
-        chat = chat_result.first()
 
         # Fetch messages belonging to the chat
-        msg_result = await session.exec(select(Message).where(Message.chat_id == chat.id, Message.role != Role.SYSTEM).order_by(Message.created_at.asc()))
-        messages = msg_result.all()
+        msg_query = await session.exec(
+            select(Message).options(selectinload(Message.attachments)).where(Message.chat_id == chat.id,
+                                                                             Message.role != Role.SYSTEM).order_by(
+                Message.created_at.asc()))
+        messages = msg_query.all()
 
         # Return a JSON-serializable structure with chat and its messages
         return {
@@ -183,13 +215,14 @@ class ChatService:
                     "chat_id": str(m.chat_id) if m.chat_id else None,
                     "message": m.message,
                     "role": m.role.value if hasattr(m.role, "value") else str(m.role),
+                    "attachments": m.attachments if m.attachments else [],
                 }
                 for m in messages
             ],
         }
 
     @classmethod
-    async def get_chat_list(cls, session: AsyncSession, user: TokenData):
+    async def get_chat_list(cls, user: TokenData, session: AsyncSession):
         result = await session.exec(select(Chat).where(Chat.user_id == user.id).order_by(Chat.created_at.desc()))
         chats = result.all()
         return chats
@@ -204,9 +237,9 @@ class ChatService:
         chat.title = new_title
         session.add(chat)
         await session.commit()
-        
+
     @classmethod
-    async def delete_chat(cls, chat_id: str, user: User, session: AsyncSession):
+    async def delete_chat(cls, chat_id: str, user: TokenData, session: AsyncSession):
         chat_result = await session.exec(select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id))
         chat = chat_result.first()
         if not chat:

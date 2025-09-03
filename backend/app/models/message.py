@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID, uuid4
 
 from pydantic import ConfigDict
@@ -12,7 +12,6 @@ class Role(str, enum.Enum):  # str + Enum = easier JSON serialization
     USER = "user"
     ASSISTANT = "assistant"
     TOOL = "tool"
-
 
 class MessageBase(SQLModel):
     chat_id: UUID | None = Field(foreign_key="chat.id", default=None)
@@ -26,6 +25,9 @@ class Message(MessageBase, table=True):
     chat: "Chat" = Relationship(
         back_populates="messages", sa_relationship_kwargs={"lazy": "selectin"})
     role: Role
+    attachments: List["File"] = Relationship(
+        back_populates="message"
+    )
     created_at: Optional[datetime] = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(
@@ -53,4 +55,6 @@ class MessageCreate(MessageBase):
         }
     )
 
+
 from app.models.chat import Chat
+from app.models.file import File

@@ -20,4 +20,4 @@ def protected(user: TokenData = Depends(get_user_from_token)):
 
 @auth_router.post("/login")
 async def login(user: UserLogin, session = Depends(get_session)):
-    return await AuthService.login(user, session)
+    return await AuthService.login(user=user, session=session)

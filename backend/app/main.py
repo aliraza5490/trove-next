@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from starlette.staticfiles import StaticFiles
 
 from app.lifecyle import lifespan
 from app.routes.api_router import api_router
@@ -23,6 +24,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/api/v1/uploads", StaticFiles(directory="uploads"), name="static")
 
 
 class Health(BaseModel): 

@@ -21,7 +21,7 @@ export default function ChatClient() {
   const [inConversation, setInConversation] = useState(false);
   const [isNewChat, setIsNewChat] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[] | null>(null);
 
   const params = useParams();
   const queryClient = useQueryClient();
@@ -30,6 +30,7 @@ export default function ChatClient() {
     createChatMutation();
   const { data: chatData, isLoading } = useChatQuery(chatId);
 
+  // for sending first message on new chat
   useEffect(() => {
     const localNewMessage = localStorage.getItem('newMessage');
     if (localNewMessage && chatId && !isStreaming) {
@@ -41,18 +42,21 @@ export default function ChatClient() {
     }
   }, [chatId]);
 
+  // for updating inConversation state
   useEffect(() => {
-    if (params.chatId && messages.length && !inConversation) {
+    if (params.chatId && messages.length) {
       setInConversation(!!params.chatId || messages.length > 0);
     }
-  }, [params.chatId, messages.length, inConversation]);
+  }, [params.chatId, messages.length]);
 
+  // for setting chatId from params
   useEffect(() => {
     if (params?.chatId && typeof params.chatId === 'string' && !chatId) {
       setChatId(params.chatId);
     }
   }, [params.chatId]);
 
+  // for setting messages from chatData
   useEffect(() => {
     if (chatData && !isNewChat) {
       setMessages(
@@ -69,6 +73,7 @@ export default function ChatClient() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  // for scrolling to bottom on new messages
   useEffect(() => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -92,22 +97,25 @@ export default function ChatClient() {
       id: crypto.randomUUID(),
       role: 'user',
       content: text,
+      attachments: [],
     };
     setMessages((prev) => [...prev, userMsg]);
 
     const assistantId = crypto.randomUUID();
     setMessages((prev) => [
       ...prev,
-      { id: assistantId, role: 'assistant', content: '' },
+      { id: assistantId, role: 'assistant', content: '', attachments: [] },
     ]);
 
     const data = new FormData();
     data.append('message', text);
     data.append('chat_id', chatId);
-    console.log(file);
+    console.log(files);
 
-    if (file) {
-      data.append('file', file);
+    if (files) {
+      files.forEach((file) => {
+        data.append('files', file);
+      });
     }
 
     const res = await fetch(
@@ -207,7 +215,7 @@ export default function ChatClient() {
   const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (files.length) {
-      setFile(files[0]);
+      setFiles(files);
       const mapped = files.map((f) => ({
         id: crypto.randomUUID(),
         name: f.name,
@@ -300,6 +308,7 @@ export default function ChatClient() {
         ref={fileInputRef}
         type="file"
         className="hidden"
+        multiple
         onChange={onFileSelected}
         accept=".pdf,.txt,.md,.doc,.docx,.csv,.json,.png,.jpg,.jpeg"
       />

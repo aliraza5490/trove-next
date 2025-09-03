@@ -1,4 +1,3 @@
-import warnings
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -34,6 +33,15 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     FRONTEND_HOST: str = "http://localhost:3000"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
+    COHERE_API_KEY: str
+    VALID_UPLOAD_FILE_TYPES: list[str] = [
+        'image/',
+        'text/plain',
+        'text/html',
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ]
 
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)
