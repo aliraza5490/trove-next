@@ -10,6 +10,7 @@ import Composer from './chat/Composer';
 import MessageList from './chat/MessageList';
 import { Message, SelectedDoc } from './types';
 import { getAuthToken } from '@/lib/auth';
+import { readAndDeleteFiles, saveFile } from '@/lib/files-db';
 
 export default function ChatClient() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -34,8 +35,13 @@ export default function ChatClient() {
   useEffect(() => {
     const localNewMessage = localStorage.getItem('newMessage');
     if (localNewMessage && chatId && !isStreaming) {
-      sendMessage(localNewMessage);
       localStorage.removeItem('newMessage');
+      readAndDeleteFiles().then((files) => {
+        if (files) {
+          setFiles(files);
+          sendMessage(localNewMessage, files);
+        }
+      });
     }
     if (!localNewMessage) {
       setIsNewChat(false);
@@ -79,7 +85,7 @@ export default function ChatClient() {
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, isStreaming]);
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (text: string, files: File[] | null) => {
     if (!text.trim() || isStreaming || isSending) return;
     setInput('');
     setSelectedDocs([]);
@@ -89,6 +95,9 @@ export default function ChatClient() {
       if (isCreatingChat) return;
       const res = await createChat(text);
       localStorage.setItem('newMessage', text);
+      if (files) {
+        await Promise.all(files.map((file) => saveFile(file)));
+      }
       await queryClient.invalidateQueries({ queryKey: ['chat-list'] });
       return router.push(`/dashboard/chat/${res.id}`);
     }
@@ -150,7 +159,6 @@ export default function ChatClient() {
           .map((chunk) => JSON.parse(chunk));
 
         for (const chunk of chunks) {
-          console.log('Chunk:', chunk);
           if (chunk?.type === 'message') {
             const message = chunk.content;
             setMessages((prev) =>
@@ -172,11 +180,8 @@ export default function ChatClient() {
             })();
           }
         }
-        console.log('Chunk:', chunks);
       }
     }
-
-    console.log('Stream ended');
   };
 
   const handleUploadClick = () => {
@@ -217,7 +222,7 @@ export default function ChatClient() {
   };
 
   const handleSend = () => {
-    sendMessage(input);
+    sendMessage(input, files);
   };
 
   if (isLoading && !isNewChat) {
