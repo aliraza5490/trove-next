@@ -97,7 +97,13 @@ export default function ChatClient() {
       id: crypto.randomUUID(),
       role: 'user',
       content: text,
-      attachments: [],
+      attachments: files
+        ? files.map((file) => ({
+            name: file.name,
+            type: file.type,
+            file_size: file.size,
+          }))
+        : [],
     };
     setMessages((prev) => [...prev, userMsg]);
 
@@ -130,6 +136,7 @@ export default function ChatClient() {
     );
 
     if (res.body) {
+      setFiles([]);
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
 
@@ -170,42 +177,6 @@ export default function ChatClient() {
     }
 
     console.log('Stream ended');
-    // const messageSSE = createSSE(
-    //   `/chat/message?message=${encodeURIComponent(text)}&chat_id=${chatId}`,
-    // );
-
-    // messageSSE.onmessage = (event) => {
-    //   setIsStreaming(true);
-    //   console.log('event', event);
-    //   try {
-    //     const data = JSON.parse(event.data);
-    //     if (data?.type === 'message') {
-    //       const message = data.content;
-    //       setMessages((prev) =>
-    //         prev.map((m) =>
-    //           m.id === assistantId ? { ...m, content: m.content + message } : m,
-    //         ),
-    //       );
-    //     }
-    //     if (data?.type === 'end') {
-    //       (async () => {
-    //         const chatId = data.content;
-    //         await queryClient.invalidateQueries({ queryKey: ['chat', chatId] });
-    //         setIsStreaming(false);
-    //       })();
-    //     }
-    //   } catch {
-    //     console.error('Error parsing SSE event data');
-    //     setIsStreaming(false);
-    //     setIsSending(false);
-    //   }
-    // };
-
-    // messageSSE.onerror = (err) => {
-    //   setIsStreaming(false);
-    //   setIsSending(false);
-    //   messageSSE.close();
-    // };
   };
 
   const handleUploadClick = () => {

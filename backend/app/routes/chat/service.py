@@ -3,16 +3,18 @@ import shutil
 from pathlib import Path
 from uuid import UUID
 
+from alembic.command import history
 from fastapi import HTTPException, status, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from langchain_core.messages import trim_messages
 from langchain_core.messages.utils import count_tokens_approximately
+from langchain_core.prompts.chat import ChatPromptTemplate, MessagesPlaceholder
 from langchain_groq import ChatGroq
 from pydantic import BaseModel
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import select, asc
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.chat import Chat
@@ -52,15 +54,15 @@ class ChatService:
         chat = Chat(title=title.content, user_id=user.id)
         session.add(chat)
         await session.commit()
-        await session.refresh(chat)
-
-        system_message = Message(
-            chat=chat,
-            message="Your name is Trove. You are a helpful AI assistant.",
-            role=Role.SYSTEM
-        )
-        session.add(system_message)
-        await session.commit()
+        # await session.refresh(chat)
+        #
+        # system_message = Message(
+        #     chat=chat,
+        #     message="Your name is Trove. You are a helpful AI assistant.",
+        #     role=Role.SYSTEM
+        # )
+        # session.add(system_message)
+        # await session.commit()
 
         return chat
 
@@ -74,7 +76,7 @@ class ChatService:
             except ValueError:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat_id")
 
-        chat_result = await session.exec(select(Chat).where(Chat.id == chat_uuid))
+        chat_result = await session.exec(select(Chat).where(Chat.id == chat_uuid).limit(1))
         chat = chat_result.first()
 
         if not chat:
@@ -118,7 +120,7 @@ class ChatService:
                 session.add(file)
 
                 docs = text_splitter.create_documents([text])
-                metadata = [{"type": "upload", "file_id": str(file.id)} for _ in docs]
+                metadata = [{"type": "attachment", "file_id": str(file.id), "chat_id": chat_id} for _ in docs]
                 docs = text_splitter.create_documents([text], metadatas=metadata)
                 await vector_store.aadd_documents(docs)
 
@@ -144,7 +146,8 @@ class ChatService:
         )
 
         chat_messages = await session.exec(
-            select(Message).where(Message.chat_id == chat.id).order_by(Message.created_at.asc()))
+            select(Message).where(Message.chat_id == chat.id).order_by(asc(Message.created_at))
+        )
         messages = chat_messages.all()
 
         ROLE_MAP = {
@@ -157,10 +160,35 @@ class ChatService:
             lc_messages,
             max_tokens=10000,
             strategy="last",
-            include_system=True,
+            include_system=False,
             allow_partial=False,
             token_counter=count_tokens_approximately,
         )
+
+        docs_search_filter = {
+            "type": "upload"
+        }
+        context_docs = await vector_store.asimilarity_search(query=message, k=5, filter=docs_search_filter)
+        context = " ".join([doc.page_content for doc in context_docs])
+
+        upload_search_filter = {
+            "type": "attachment",
+            "chat_id": chat_id
+        }
+        uploaded_docs = await vector_store.asimilarity_search(query=message, k=5, filter=upload_search_filter)
+        upload_context = " ".join([doc.page_content for doc in uploaded_docs])
+
+        prompt_template = ChatPromptTemplate([
+            SystemMessage(content=(
+                "Your name is Trove. You are a helpful AI assistant."
+                "Here is the context of this conversation:"
+                f"{context}"
+                f"{upload_context}"
+            )),
+            MessagesPlaceholder("prev_history"),
+        ])
+
+        chain = prompt_template | llm
 
         # commit
         await session.commit()
@@ -168,7 +196,9 @@ class ChatService:
         # Use async streaming to avoid blocking event loop
         async def generate():
             full_response = ""
-            async for chunk in llm.astream(trimmed_messages):
+            async for chunk in chain.astream({
+                "prev_history": trimmed_messages
+            }):
                 full_response += chunk.content
                 event = {
                     "content": chunk.content,
@@ -202,8 +232,9 @@ class ChatService:
         # Fetch messages belonging to the chat
         msg_query = await session.exec(
             select(Message).options(selectinload(Message.attachments)).where(Message.chat_id == chat.id,
-                                                                             Message.role != Role.SYSTEM).order_by(
-                Message.created_at.asc()))
+                                                                             Message.role != Role.SYSTEM)
+            .order_by(asc(Message.created_at))
+        )
         messages = msg_query.all()
 
         # Return a JSON-serializable structure with chat and its messages

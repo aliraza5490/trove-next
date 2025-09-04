@@ -1,7 +1,8 @@
 from langchain_cohere import CohereEmbeddings
 from langchain_postgres import PGVectorStore
-from langchain_postgres.v2.engine import PGEngine
+from langchain_postgres.v2.engine import PGEngine, Column
 from langchain_text_splitters.character import RecursiveCharacterTextSplitter
+from sqlalchemy import String
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.settings import settings
@@ -25,7 +26,12 @@ async def create_vector_store_table():
     await pg_engine.ainit_vectorstore_table(
         table_name=TABLE_NAME,
         vector_size=VECTOR_SIZE,
-        overwrite_existing=True
+        overwrite_existing=True,
+        metadata_columns=[
+            Column("type", "text"),
+            Column("file_id", "text"),
+            Column("chat_id", "text"),
+        ]
     )
 
 
@@ -34,5 +40,7 @@ async def get_vector_store() -> PGVectorStore:
         engine=pg_engine,
         table_name=TABLE_NAME,
         embedding_service=embedding,
+        metadata_columns=["type", "file_id", "chat_id"],
+        metadata_json_column="metadata",
     )
     return store

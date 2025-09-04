@@ -43,10 +43,10 @@ const Header = () => {
           )}
           <Link
             href={isUser ? '/dashboard' : '/signup'}
-            className="inline-flex"
+            className="inline-flex cursor-pointer"
           >
             <Button size="lg">
-              Get started
+              {!isUser ? <>Get started</> : <>Dashboard</>}
               <ArrowRight className="size-4" />
             </Button>
           </Link>
