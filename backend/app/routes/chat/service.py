@@ -3,7 +3,6 @@ import shutil
 from pathlib import Path
 from uuid import UUID
 
-from alembic.command import history
 from fastapi import HTTPException, status, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
