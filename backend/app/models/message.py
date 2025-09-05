@@ -13,6 +13,7 @@ class Role(str, enum.Enum):  # str + Enum = easier JSON serialization
     ASSISTANT = "assistant"
     TOOL = "tool"
 
+
 class MessageBase(SQLModel):
     chat_id: UUID | None = Field(foreign_key="chat.id", default=None)
     message: str = Field()

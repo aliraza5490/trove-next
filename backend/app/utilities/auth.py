@@ -5,6 +5,7 @@ import jwt
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer
 from passlib.context import CryptContext
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.settings import settings
@@ -46,9 +47,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 async def get_db_user(token_data: TokenData, session: AsyncSession):
     # Query the user from database
-    user, = await session.exec(select(User).where(User.email == token_data.email).first())
+    user, = await session.exec(select(User).where(User.email == token_data.email).limit(1))
     if user is None:
-        raise credentials_exception
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
 
     # Check if user is active
     if not user.isActive:

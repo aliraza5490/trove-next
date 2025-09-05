@@ -1,6 +1,4 @@
 import json
-import shutil
-from pathlib import Path
 from uuid import UUID
 
 from fastapi import HTTPException, status, UploadFile
@@ -12,8 +10,8 @@ from langchain_core.messages.utils import count_tokens_approximately
 from langchain_core.prompts.chat import ChatPromptTemplate, MessagesPlaceholder
 from langchain_groq import ChatGroq
 from pydantic import BaseModel
-from sqlalchemy.orm import selectinload
-from sqlmodel import select, asc
+from sqlalchemy.orm import selectinload, QueryableAttribute
+from sqlmodel import select, asc, desc
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.chat import Chat
@@ -21,9 +19,10 @@ from app.models.file import File
 from app.models.message import Message, Role
 from app.models.user import TokenData
 from app.settings import settings
-from app.utilities.files import is_valid_file_type
+from app.utilities.files import is_valid_file_type, save_file
 from app.utilities.ocr import extract_text
 from app.utilities.vector_store import text_splitter, get_vector_store
+from typing import cast
 
 
 class MessageCreate(BaseModel):
@@ -99,13 +98,7 @@ class ChatService:
                 if uploaded_file.size > 10 * 1024 * 1024:
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be less than 10mb")
 
-                upload_dir = Path(f"uploads/{user.id}")
-                upload_dir.mkdir(parents=True, exist_ok=True)  # ensure the folder exists
-
-                file_location = upload_dir / uploaded_file.filename
-                with file_location.open("wb") as buffer:
-                    # noinspection PyTypeChecker
-                    shutil.copyfileobj(uploaded_file.file, buffer)
+                file_location = await run_in_threadpool(save_file, uploaded_file, user.id)
 
                 text = await run_in_threadpool(extract_text, path=str(file_location))
 
@@ -230,8 +223,9 @@ class ChatService:
 
         # Fetch messages belonging to the chat
         msg_query = await session.exec(
-            select(Message).options(selectinload(Message.attachments)).where(Message.chat_id == chat.id,
-                                                                             Message.role != Role.SYSTEM)
+            select(Message).options(selectinload(cast(QueryableAttribute, Message.attachments))).where(
+                Message.chat_id == chat.id,
+                Message.role != Role.SYSTEM)
             .order_by(asc(Message.created_at))
         )
         messages = msg_query.all()
@@ -253,7 +247,7 @@ class ChatService:
 
     @classmethod
     async def get_chat_list(cls, user: TokenData, session: AsyncSession):
-        result = await session.exec(select(Chat).where(Chat.user_id == user.id).order_by(Chat.created_at.desc()))
+        result = await session.exec(select(Chat).where(Chat.user_id == user.id).order_by(desc(Chat.created_at)))
         chats = result.all()
         return chats
 

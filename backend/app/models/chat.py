@@ -6,7 +6,6 @@ from pydantic import StringConstraints, ConfigDict
 from sqlmodel import Column, DateTime, SQLModel, Field, Relationship, func
 
 
-
 class ChatBase(SQLModel):
     title: Optional[Annotated[str, StringConstraints(
         min_length=6, max_length=64)]] = Field()
@@ -46,5 +45,6 @@ class ChatCreate(ChatBase):
             ]
         }
     )
+
 
 from .message import Message

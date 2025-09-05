@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from starlette.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.lifecyle import lifespan
 from app.routes.api_router import api_router
@@ -34,5 +35,19 @@ class Health(BaseModel):
 @app.get("/", tags=["main"], response_model=Health, summary="Health Route", description="This is a health route for checking server status.")
 def read_root():
     return {"message": "Hello World!"}
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": exc.status_code,
+                "message": exc.detail,
+                "path": str(request.url),
+            }
+        },
+    )
 
 app.include_router(api_router)
