@@ -1,6 +1,6 @@
 from enum import Enum
 
 class Tags(Enum):
-    users = "users"
-    chat = "chat"
+    users = "Users"
+    chat = "Chat"
     kb = "Knowledge Base"

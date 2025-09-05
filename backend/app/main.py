@@ -9,7 +9,7 @@ from app.routes.api_router import api_router
 from app.settings import settings
 
 app = FastAPI(
-    title="Todo API",
+    title="Trove API",
     description="A simple ToDo API built with FastAPI and SQLModel",
     version="1.0.0",
     openapi_url="/api/openapi.json",
@@ -32,7 +32,7 @@ app.mount("/api/v1/uploads", StaticFiles(directory="uploads"), name="static")
 class Health(BaseModel): 
     message: str
 
-@app.get("/", tags=["main"], response_model=Health, summary="Health Route", description="This is a health route for checking server status.")
+@app.get("/", tags=["Main"], response_model=Health, summary="Health Route", description="This is a health route for checking server status.")
 def read_root():
     return {"message": "Hello World!"}
 
