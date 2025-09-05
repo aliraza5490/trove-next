@@ -1,5 +1,6 @@
 import json
-from uuid import UUID
+from typing import cast
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -22,7 +23,6 @@ from app.settings import settings
 from app.utilities.files import is_valid_file_type, save_file
 from app.utilities.ocr import extract_text
 from app.utilities.vector_store import text_splitter, get_vector_store
-from typing import cast
 
 
 class MessageCreate(BaseModel):
@@ -113,7 +113,7 @@ class ChatService:
 
                 docs = text_splitter.create_documents([text])
                 metadata = [{"type": "attachment", "file_id": str(file.id), "chat_id": chat_id} for _ in docs]
-                docs = text_splitter.create_documents([text], metadatas=metadata)
+                docs = text_splitter.create_documents([text], metadatas=metadata, ids=[str(uuid4()) for _ in docs])
                 await vector_store.aadd_documents(docs)
 
                 file_info = {

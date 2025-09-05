@@ -1,4 +1,5 @@
 from typing import List
+from uuid import uuid4
 
 from fastapi import HTTPException, status, UploadFile
 from sqlmodel import select, func
@@ -47,7 +48,7 @@ class KBService:
                 "file_location": file_location,
                 "documents": docs,
             }
-            await vector_store.aadd_documents(docs)
+            await vector_store.aadd_documents(docs, ids=[str(uuid4()) for _ in docs])
             files_info.append(file_info)
 
         return files_info
