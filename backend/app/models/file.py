@@ -14,8 +14,9 @@ class FileBase(SQLModel):
 class File(FileBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID = Field(foreign_key="user.id")
-    message_id: Optional[UUID] = Field(default=None, foreign_key="message.id")
+    message_id: Optional[UUID] = Field(default=None, foreign_key="message.id", ondelete="CASCADE")
     message: Optional["Message"] = Relationship(back_populates="attachments")
+    file_size: int = Field(default=0)
     created_at: Optional[datetime] = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(

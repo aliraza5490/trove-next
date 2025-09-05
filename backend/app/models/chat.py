@@ -19,7 +19,7 @@ class Chat(ChatBase, table=True):
         sa_relationship_kwargs={"lazy": "selectin",
                                 "cascade": "all, delete-orphan"}
     )
-    user_id: UUID = Field(foreign_key="user.id")
+    user_id: UUID = Field(foreign_key="user.id", ondelete="CASCADE")
     created_at: Optional[datetime] = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(

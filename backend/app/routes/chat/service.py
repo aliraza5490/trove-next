@@ -84,6 +84,7 @@ class ChatService:
             chat=chat,
             message=message,
             role=Role.USER,
+            user_id=user.id
         )
         session.add(user_message_doc)
 
@@ -113,8 +114,8 @@ class ChatService:
 
                 docs = text_splitter.create_documents([text])
                 metadata = [{"type": "attachment", "file_id": str(file.id), "chat_id": chat_id} for _ in docs]
-                docs = text_splitter.create_documents([text], metadatas=metadata, ids=[str(uuid4()) for _ in docs])
-                await vector_store.aadd_documents(docs)
+                docs = text_splitter.create_documents([text], metadatas=metadata)
+                await vector_store.aadd_documents(docs, ids=[str(uuid4()) for _ in docs])
 
                 file_info = {
                     "text": text,
@@ -200,7 +201,8 @@ class ChatService:
             ai_message = Message(
                 chat=chat,
                 message=full_response,
-                role=Role.ASSISTANT
+                role=Role.ASSISTANT,
+                user_id=user.id
             )
             session.add(ai_message)
             await session.commit()

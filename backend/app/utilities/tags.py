@@ -4,3 +4,4 @@ class Tags(Enum):
     users = "Users"
     chat = "Chat"
     kb = "Knowledge Base"
+    stats = "Stats"

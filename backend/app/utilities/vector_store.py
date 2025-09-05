@@ -23,16 +23,19 @@ text_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=20)
 
 
 async def create_vector_store_table():
-    await pg_engine.ainit_vectorstore_table(
-        table_name=TABLE_NAME,
-        vector_size=VECTOR_SIZE,
-        overwrite_existing=True,
-        metadata_columns=[
-            Column("type", "text"),
-            Column("file_id", "text"),
-            Column("chat_id", "text"),
-        ]
-    )
+    try:
+        await pg_engine.ainit_vectorstore_table(
+            table_name=TABLE_NAME,
+            vector_size=VECTOR_SIZE,
+            overwrite_existing=False,
+            metadata_columns=[
+                Column("type", "text"),
+                Column("file_id", "text"),
+                Column("chat_id", "text"),
+            ]
+        )
+    except:
+        pass
 
 
 async def get_vector_store() -> PGVectorStore:

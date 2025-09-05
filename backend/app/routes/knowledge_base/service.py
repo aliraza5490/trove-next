@@ -35,7 +35,7 @@ class KBService:
                 file_name=file.filename,
                 file_size=file.size,
                 file_path=str(file_location),
-                user_id=user.id
+                user_id=user.id,
             )
             session.add(file)
             await session.commit()

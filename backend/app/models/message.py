@@ -29,6 +29,7 @@ class Message(MessageBase, table=True):
     attachments: List["File"] = Relationship(
         back_populates="message"
     )
+    user_id: UUID = Field(foreign_key="user.id", ondelete="CASCADE")
     created_at: Optional[datetime] = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(
