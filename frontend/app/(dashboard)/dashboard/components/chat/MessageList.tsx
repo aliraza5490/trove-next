@@ -4,6 +4,7 @@ import { cn, formatBytes } from '@/lib/utils';
 import { Message } from '../types';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 
 export default function MessageList({ messages }: { messages: Message[] }) {
   return (
@@ -81,7 +82,7 @@ function AttachmentList({
           const isDisabled = !url || url === '#';
 
           const itemInner = (
-            <div className="flex items-start gap-3 p-3">
+            <div className="bg-background rounded-lg flex items-start gap-3 p-3">
               <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-foreground font-semibold">
                 {(ext || name).slice(0, 2).toUpperCase()}
               </div>
@@ -156,21 +157,84 @@ function ChatBubble({
       )}
       <div
         className={cn(
-          'max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm',
+          'max-w-[85%] rounded-2xl text-sm shadow-sm',
           isUser
-            ? 'bg-primary text-primary-foreground rounded-br-md'
-            : 'bg-muted text-foreground rounded-bl-md',
+            ? 'bg-muted text-primary-foreground rounded-br-md  py-3  px-4'
+            : 'bg-none text-foreground rounded-bl-md',
         )}
       >
         {content ? (
-          <div suppressHydrationWarning className="overflow-x-auto">
+          <div suppressHydrationWarning className="break-words">
             <Markdown
-              remarkPlugins={[remarkGfm]}
+              remarkPlugins={[remarkGfm, remarkBreaks]}
+              // linkTarget="_blank"
               components={{
-                html: (props) => <html suppressHydrationWarning {...props} />,
+                // Text & headings
+                p: (props) => (
+                  <p className="mb-3 leading-7 last:mb-0" {...props} />
+                ),
+                h1: (props) => (
+                  <h1 className="mt-0 mb-3 text-2xl font-semibold" {...props} />
+                ),
+                h2: (props) => (
+                  <h2 className="mt-0 mb-3 text-xl font-semibold" {...props} />
+                ),
+                h3: (props) => (
+                  <h3 className="mt-0 mb-2 text-lg font-semibold" {...props} />
+                ),
+                h4: (props) => (
+                  <h4
+                    className="mt-0 mb-2 text-base font-semibold"
+                    {...props}
+                  />
+                ),
+                h5: (props) => (
+                  <h5 className="mt-0 mb-2 text-sm font-semibold" {...props} />
+                ),
+                h6: (props) => (
+                  <h6
+                    className="mt-0 mb-2 text-sm font-semibold opacity-80"
+                    {...props}
+                  />
+                ),
+
+                // Lists
+                ul: (props) => (
+                  <ul className="my-3 ml-6 list-disc space-y-1" {...props} />
+                ),
+                ol: (props) => (
+                  <ol className="my-3 ml-6 list-decimal space-y-1" {...props} />
+                ),
+                li: (props) => (
+                  <li className="marker:text-muted-foreground" {...props} />
+                ),
+
+                // Links & media
+                a: (props) => (
+                  <a
+                    className="underline underline-offset-4 text-primary hover:opacity-80"
+                    rel="noreferrer noopener"
+                    {...props}
+                  />
+                ),
+                img: (props) => (
+                  // Allow images to scale down within bubbles
+                  <img className="my-2 max-h-96 w-auto rounded" {...props} />
+                ),
+
+                // Blockquote & hr
+                blockquote: (props) => (
+                  <blockquote
+                    className="my-3 border-l-2 border-muted-foreground/30 pl-4 italic text-muted-foreground"
+                    {...props}
+                  />
+                ),
+                hr: (props) => <hr className="my-4 border-muted" {...props} />,
+
+                // Tables
                 table: (props) => (
                   <table
-                    className="w-full border-collapse text-left my-2"
+                    className="w-full border-collapse text-left my-3 text-sm"
                     {...props}
                   />
                 ),
@@ -184,11 +248,19 @@ function ChatBubble({
                 td: (props) => (
                   <td className="border px-3 py-2 align-top" {...props} />
                 ),
+
+                // Code
+                pre: (props) => (
+                  <pre
+                    className="my-3 overflow-x-auto rounded bg-muted-foreground/10 p-3 text-xs leading-relaxed shadow-sm"
+                    {...props}
+                  />
+                ),
                 code: ({ inline, className, children, ...props }: any) =>
                   inline ? (
                     <code
                       className={cn(
-                        'rounded bg-muted-foreground/10 px-1.5 py-0.5',
+                        'font-mono rounded bg-muted-foreground/10 px-1.5 py-0.5',
                         className,
                       )}
                       {...props}
@@ -196,11 +268,10 @@ function ChatBubble({
                       {children}
                     </code>
                   ) : (
-                    <span className="my-2 overflow-x-auto rounded bg-muted-foreground/10 p-3 text-xs">
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    </span>
+                    // For fenced code blocks, let <pre> handle the container styling.
+                    <code className={cn('font-mono', className)} {...props}>
+                      {children}
+                    </code>
                   ),
               }}
             >

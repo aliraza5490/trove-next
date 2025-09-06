@@ -25,7 +25,7 @@ export default function StatCard({
     >
       <CardContent className={contentClassName}>
         <div className="flex flex-col space-y-4">
-          <div className={`rounded-full p-3 w-fit ${iconBgClass}`}>{icon}</div>
+          <div className={`rounded-lg p-3 w-fit ${iconBgClass}`}>{icon}</div>
           <div>
             <p className="text-3xl font-bold text-white">{value}</p>
             <p className="text-sm text-slate-400">{label}</p>
