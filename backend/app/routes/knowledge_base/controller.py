@@ -1,7 +1,7 @@
-from typing import Annotated, Sequence
+from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, UploadFile, Body
-from uuid import UUID
 
 from app.models.user import TokenData
 from app.routes.knowledge_base.service import KBService
@@ -26,10 +26,10 @@ async def list_files(session=Depends(get_session), user: TokenData = Depends(get
 @kb_router.post("/batch-delete", description="Delete Documents", summary="Delete list of documents")
 async def delete_file(file_ids: Annotated[list[UUID], Body(embed=True)], session=Depends(get_session),
                       user: TokenData = Depends(get_user_from_token)):
-    return await KBService.delete_files([str(file_id) for file_id in file_ids], user, session)
+    ids = [str(file_id) for file_id in file_ids]
+    return await KBService.delete_files(ids, user, session)
 
 
 @kb_router.delete("/{file_id}", description="List Documents", summary="Delete Document")
 async def delete_file(file_id: UUID, session=Depends(get_session), user: TokenData = Depends(get_user_from_token)):
     return await KBService.delete_file(str(file_id), user, session)
-

@@ -11,7 +11,7 @@ from app.models.user import TokenData
 from app.settings import settings
 from app.utilities.files import is_valid_file_type, save_file
 from app.utilities.ocr import extract_text
-from app.utilities.vector_store import text_splitter, get_vector_store
+from app.utilities.vector_store import text_splitter, get_vector_store, delete_file_embeddings
 
 
 class KBService:
@@ -64,25 +64,30 @@ class KBService:
             offset_value = (page_num - 1) * page_size
             files = await session.exec(
                 select(File).where(File.user_id == user.id).offset(offset_value).limit(page_size))
-            total = await session.exec(select(func.count(File.id)).offset(page_size))
+            total = await session.exec(select(func.count(File.id)).where(File.user_id == user.id))
 
             return {
                 "data": files.all(),
-                "total": total.one(),
+                "total": total.first() or 0,
             }
-        except:
+        except Exception as e:
+            print(e)
             return {"data": [], "total": 0}
 
     @classmethod
     async def delete_file(cls, file_id: str, user: TokenData, session: AsyncSession):
-        files = await session.exec(select(File).where(File.user_id == user.id, File.id == file_id).limit(1))
-        files = files.first()
+        file = await session.exec(select(File).where(File.user_id == user.id, File.id == file_id).limit(1))
+        file = file.first()
 
-        if not files:
+        if not file:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "File Not Found")
 
-        await session.delete(files[0])
+        await session.delete(file)
         await session.commit()
+
+        # Delete File Embeddings as well
+        await delete_file_embeddings([file_id])
+
         return {
             "message": "File Deleted",
         }
@@ -97,6 +102,10 @@ class KBService:
 
         await session.delete(files[0])
         await session.commit()
+
+        # Delete File Embeddings as well
+        await delete_file_embeddings(file_ids)
+
         return {
             "message": "Files Deleted",
         }

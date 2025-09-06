@@ -1,8 +1,11 @@
+from typing import List
+
 from langchain_cohere import CohereEmbeddings
 from langchain_postgres import PGVectorStore
 from langchain_postgres.v2.engine import PGEngine, Column
 from langchain_text_splitters.character import RecursiveCharacterTextSplitter
 from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel import text
 
 from app.settings import settings
 
@@ -34,7 +37,8 @@ async def create_vector_store_table():
                 Column("chat_id", "text"),
             ]
         )
-    except:
+    except Exception as e:
+        print(f"Failed to create vector store table: {e}")
         pass
 
 
@@ -47,3 +51,15 @@ async def get_vector_store() -> PGVectorStore:
         metadata_json_column="metadata",
     )
     return store
+
+
+async def delete_file_embeddings(file_ids: List[str]):
+    query = f"""
+            DELETE FROM public.{TABLE_NAME}
+            WHERE "file_id" = ANY(:file_ids)
+        """
+    async with engine.connect() as conn:
+        await conn.execute(text(query), {
+            "file_ids": file_ids
+        })
+        await conn.commit()
