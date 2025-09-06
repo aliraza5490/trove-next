@@ -1,6 +1,6 @@
 'use client';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { cn } from '@/lib/utils';
+import { cn, formatBytes } from '@/lib/utils';
 import { Message } from '../types';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -35,22 +35,6 @@ function toPublicUrl(path: string) {
     ? new URL(path).pathname
     : `/${path.replace(/^\/+/, '')}`;
   return `${process.env.NEXT_PUBLIC_BACKEND_URL}${pathname}`;
-}
-
-function isImageFile(nameOrPath: string) {
-  return /\.(png|jpe?g|gif|webp|svg|bmp|tiff)$/i.test(nameOrPath);
-}
-
-function formatBytes(bytes?: number) {
-  if (!bytes && bytes !== 0) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let i = -1;
-  do {
-    bytes = bytes / 1024;
-    i++;
-  } while (bytes >= 1024 && i < units.length - 1);
-  return `${bytes.toFixed(1)} ${units[i]}`;
 }
 
 // Added: helpers for file extension display

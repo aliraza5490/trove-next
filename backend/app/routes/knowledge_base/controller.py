@@ -19,8 +19,8 @@ async def upload_files(files: list[UploadFile], session=Depends(get_session),
 
 
 @kb_router.get("/list", description="List Documents", summary="List Documents")
-async def list_files(session=Depends(get_session), user: TokenData = Depends(get_user_from_token)):
-    return await KBService.list_files(user, session)
+async def list_files(session=Depends(get_session), page: int = 1, user: TokenData = Depends(get_user_from_token)):
+    return await KBService.list_files(user, session, page_num=page)
 
 
 @kb_router.post("/batch-delete", description="Delete Documents", summary="Delete list of documents")

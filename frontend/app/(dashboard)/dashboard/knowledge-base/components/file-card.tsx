@@ -17,22 +17,14 @@ import {
   EyeOff,
   Trash2,
 } from 'lucide-react';
+import { IFile } from '../types';
+import { formatBytes, timeAgo } from '@/lib/utils';
 
 type FileType = 'pdf' | 'docx' | 'html' | 'text' | 'pptx' | string;
 
-interface File {
-  id: number | string;
-  name: string;
-  type: FileType;
-  size: string;
-  uploadDate: string;
-  enabled: boolean;
-}
-
 export interface FileCardProps {
-  file: File;
-  onToggleEnabled?: (id: number | string, nextEnabled: boolean) => void;
-  onDelete?: (id: number | string) => void;
+  file: IFile;
+  onDelete?: (id: string) => void;
   className?: string;
 }
 
@@ -55,18 +47,14 @@ const getFileIcon = (type: FileType) => {
 
 export default function FileCard({
   file,
-  onToggleEnabled,
   onDelete,
   className = '',
 }: FileCardProps) {
-  const { id, name, type, size, uploadDate, enabled } = file;
+  const { id, file_name: name, file_size: size, created_at: uploadDate } = file;
 
   return (
     <Card
-      className={`relative hover:bg-slate-750 transition-colors ${
-        !enabled ? 'opacity-60' : ''
-      } ${className}`}
-      aria-disabled={!enabled}
+      className={`relative hover:bg-slate-750 transition-colors ${className}`}
     >
       <CardContent className="p-4">
         {/* Actions (top-right) */}
@@ -76,22 +64,6 @@ export default function FileCard({
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-slate-800 border-slate-700">
-              <DropdownMenuItem
-                className="text-slate-200 hover:bg-slate-700"
-                onClick={() => onToggleEnabled?.(id, !enabled)}
-              >
-                {enabled ? (
-                  <>
-                    <EyeOff className="mr-2 h-4 w-4" />
-                    Disable
-                  </>
-                ) : (
-                  <>
-                    <Eye className="mr-2 h-4 w-4" />
-                    Enable
-                  </>
-                )}
-              </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-red-400 hover:bg-slate-700"
                 onClick={() => onDelete?.(id)}
@@ -107,7 +79,9 @@ export default function FileCard({
         <div className="flex flex-col items-center text-center gap-2 pt-2">
           {/* File Icon */}
           <div className="flex-shrink-0">
-            <div className="relative">{getFileIcon(type)}</div>
+            <div className="relative">
+              {getFileIcon(file.file_name.split('.').pop() as string)}
+            </div>
           </div>
 
           {/* File Information */}
@@ -119,9 +93,9 @@ export default function FileCard({
               {name}
             </h3>
             <div className="flex items-center justify-center space-x-2 mt-1">
-              <p className="text-xs text-slate-400">{size}</p>
+              <p className="text-xs text-slate-400">{formatBytes(size)}</p>
               <span className="text-slate-600">•</span>
-              <p className="text-xs text-slate-500">{uploadDate}</p>
+              <p className="text-xs text-slate-500">{timeAgo(uploadDate)}</p>
             </div>
           </div>
         </div>
