@@ -5,6 +5,7 @@ import { Message } from '../types';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import rehypeRaw from 'rehype-raw';
 
 export default function MessageList({ messages }: { messages: Message[] }) {
   return (
@@ -167,6 +168,8 @@ function ChatBubble({
           <div suppressHydrationWarning className="break-words">
             <Markdown
               remarkPlugins={[remarkGfm, remarkBreaks]}
+              rehypePlugins={[rehypeRaw]}
+              skipHtml={false}
               // linkTarget="_blank"
               components={{
                 // Text & headings
