@@ -31,6 +31,11 @@ export default function ChatClient() {
     createChatMutation();
   const { data: chatData, isLoading } = useChatQuery(chatId);
 
+  useEffect(() => {
+    const storedWebsearchValue = localStorage.getItem('webSearch');
+    setWebSearch(Boolean(storedWebsearchValue));
+  }, []);
+
   // for sending first message on new chat
   useEffect(() => {
     const localNewMessage = localStorage.getItem('newMessage');
@@ -125,7 +130,7 @@ export default function ChatClient() {
     const data = new FormData();
     data.append('message', text);
     data.append('chat_id', chatId);
-    console.log(files);
+    data.append('web_search', webSearch ? 'true' : 'false');
 
     if (files) {
       files.forEach((file) => {

@@ -18,9 +18,11 @@ async def create_chat(message: str, session=Depends(get_session), user: TokenDat
 
 
 @chat_router.post("/message", description="Create a new message in a chat", summary="Create Message", )
-async def create_message(message: Annotated[str, Body()], chat_id: Annotated[UUID, Body()], files: list[UploadFile] = None,
+async def create_message(message: Annotated[str, Body()], chat_id: Annotated[UUID, Body()],
+                         web_search: Annotated[bool, Body()] = False, files: list[UploadFile] = None,
                          session=Depends(get_session), user: TokenData = Depends(get_user_from_token)):
     return await ChatService.create_message(message=message, chat_id=str(chat_id), uploaded_files=files,
+                                            web_search=web_search,
                                             session=session, user=user)
 
 

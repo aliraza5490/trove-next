@@ -10,6 +10,8 @@ from langchain_core.messages import trim_messages
 from langchain_core.messages.utils import count_tokens_approximately
 from langchain_core.prompts.chat import ChatPromptTemplate, MessagesPlaceholder
 from langchain_groq import ChatGroq
+from langchain_tavily import TavilySearch
+from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel
 from sqlalchemy.orm import selectinload, QueryableAttribute
 from sqlmodel import select, asc, desc
@@ -66,7 +68,7 @@ class ChatService:
 
     @classmethod
     async def create_message(cls, message: str, chat_id: str, user: TokenData,
-                             session: AsyncSession, uploaded_files: list[UploadFile] = None):
+                             session: AsyncSession, web_search: bool = False, uploaded_files: list[UploadFile] = None):
         chat_uuid: UUID | None = None
         if chat_id:
             try:
@@ -128,6 +130,13 @@ class ChatService:
             if len(files):
                 print("Uploaded Files", files)
 
+        # Search tool
+        # search = DuckDuckGoSearchRun()
+        search_tool = TavilySearch(
+            max_results=5,
+            topic="general",
+            tavily_api_key=settings.TAVILY_API_KEY
+        )
         llm = ChatGroq(
             model="openai/gpt-oss-20b",
             temperature=0,
@@ -135,8 +144,12 @@ class ChatService:
             reasoning_format="parsed",
             timeout=None,
             max_retries=2,
-            api_key=settings.GROQ_API_KEY
+            api_key=settings.GROQ_API_KEY,
         )
+
+        tools = [search_tool] if web_search else []
+
+        agent = create_react_agent(llm, tools=tools)
 
         chat_messages = await session.exec(
             select(Message).where(Message.chat_id == chat.id).order_by(asc(Message.created_at))
@@ -174,14 +187,17 @@ class ChatService:
         prompt_template = ChatPromptTemplate([
             SystemMessage(content=(
                 "Your name is Trove. You are a helpful AI assistant."
-                "Here is the context of this conversation:"
-                f"{context}"
-                f"{upload_context}"
+                "Use the search tool to search web before answering any question" if web_search else ""
+                                                                                                     "Here is the context of this conversation:"
+                                                                                                     f"{context}"
+                                                                                                     f"{upload_context}"
             )),
             MessagesPlaceholder("prev_history"),
         ])
 
-        chain = prompt_template | llm
+        messages = prompt_template.invoke({
+            "prev_history": trimmed_messages
+        })
 
         # commit
         await session.commit()
@@ -189,15 +205,14 @@ class ChatService:
         # Use async streaming to avoid blocking event loop
         async def generate():
             full_response = ""
-            async for chunk in chain.astream({
-                "prev_history": trimmed_messages
-            }):
-                full_response += chunk.content
-                event = {
-                    "content": chunk.content,
-                    "type": "message"
-                }
-                yield f"data: {json.dumps(event)}\n\n"
+            async for step, info in agent.astream(messages, stream_mode="messages"):
+                if info["langgraph_node"] == "agent" and (chunk := step.text()):
+                    full_response += chunk
+                    event = {
+                        "content": chunk,
+                        "type": "message"
+                    }
+                    yield f"data: {json.dumps(event)}\n\n"
             ai_message = Message(
                 chat=chat,
                 message=full_response,

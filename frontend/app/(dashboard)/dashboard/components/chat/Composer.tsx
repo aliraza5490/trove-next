@@ -1,3 +1,4 @@
+'use client';
 import { SelectedDoc } from '../types';
 import React, { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -68,6 +69,11 @@ function Composer(props: {
     () => (webSearch ? 'Ask anything... (Web Search ON)' : 'Ask anything...'),
     [webSearch],
   );
+
+  const handleWebsearchChange = (v: boolean) => {
+    setWebSearch(Boolean(v));
+    localStorage.setItem('webSearch', Boolean(v) ? 'true' : 'false');
+  };
 
   return (
     <div className="bg-background/80 supports-[backdrop-filter]:backdrop-blur-md border shadow-lg rounded-xl p-2 sm:p-3">
@@ -158,7 +164,7 @@ function Composer(props: {
             </DropdownMenuItem>
             <DropdownMenuCheckboxItem
               checked={webSearch}
-              onCheckedChange={(v) => setWebSearch(Boolean(v))}
+              onCheckedChange={handleWebsearchChange}
             >
               {webSearch ? (
                 <>
