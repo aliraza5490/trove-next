@@ -20,6 +20,7 @@ import {
   Bot,
 } from 'lucide-react';
 import Header from './components/Header';
+import Image from 'next/image';
 
 export default async function Home() {
   return (
@@ -64,88 +65,13 @@ export default async function Home() {
 
           {/* Inline SVG preview to avoid images */}
           <div className="mt-12 relative mx-auto max-w-5xl rounded-xl border bg-card/60 p-4 backdrop-blur">
-            <svg
-              role="img"
-              aria-label="Product preview"
-              viewBox="0 0 800 460"
-              className="w-full h-auto rounded-lg shadow-3xl"
-            >
-              <rect
-                x="4"
-                y="4"
-                width="792"
-                height="452"
-                rx="14"
-                fill="currentColor"
-                className="text-secondary/40"
-              />
-              <rect
-                x="40"
-                y="40"
-                width="720"
-                height="380"
-                rx="28"
-                fill="currentColor"
-                className="text-secondary/70"
-              />
-              <circle
-                cx="120"
-                cy="110"
-                r="14"
-                fill="currentColor"
-                className="text-primary"
-              />
-              <circle
-                cx="170"
-                cy="110"
-                r="14"
-                fill="currentColor"
-                className="text-primary"
-              />
-              <circle
-                cx="220"
-                cy="110"
-                r="14"
-                fill="currentColor"
-                className="text-primary"
-              />
-              <rect
-                x="80"
-                y="180"
-                width="640"
-                height="22"
-                rx="6"
-                fill="currentColor"
-                className="text-foreground/70"
-              />
-              <rect
-                x="80"
-                y="220"
-                width="560"
-                height="14"
-                rx="5"
-                fill="currentColor"
-                className="text-muted-foreground/60"
-              />
-              <rect
-                x="80"
-                y="244"
-                width="600"
-                height="14"
-                rx="5"
-                fill="currentColor"
-                className="text-muted-foreground/50"
-              />
-              <rect
-                x="80"
-                y="268"
-                width="520"
-                height="14"
-                rx="5"
-                fill="currentColor"
-                className="text-muted-foreground/40"
-              />
-            </svg>
+            <Image
+              className="object-cover"
+              src="/preview.png"
+              alt="Product preview"
+              width={1000}
+              height={460}
+            />
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
             <span className="rounded-full border px-2.5 py-1">
