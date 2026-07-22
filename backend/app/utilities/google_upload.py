@@ -1,10 +1,11 @@
 import os
 import time
 from typing import Optional
+from app.settings import settings
 
 
 def upload_file_to_google(file_path: str, mime_type: Optional[str] = None) -> Optional[str]:
-    google_api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+    google_api_key = getattr(settings, "GOOGLE_AI_STUDIO_API_KEY", None) or os.getenv("GOOGLE_AI_STUDIO_API_KEY")
     if not google_api_key or not os.path.exists(file_path):
         return None
 

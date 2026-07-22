@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     # SENTRY_DSN: HttpUrl | None = None
     POSTGRES_URL: str = "postgresql://postgres:postgres@127.0.0.1:5432/trove"
     GROQ_API_KEY: str = ""
+    GOOGLE_AI_STUDIO_API_KEY: str = ""
     
     @computed_field  # type: ignore[prop-decorator]
     @property
