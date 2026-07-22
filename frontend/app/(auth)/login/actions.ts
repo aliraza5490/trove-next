@@ -1,6 +1,6 @@
 'use server';
-import { serverAPI } from '@/lib/server-api';
-import { cookies } from 'next/headers';
+import { signIn } from '@/auth';
+import z from 'zod';
 
 export const handleLogin = async (formData: FormData) => {
   const input = {
@@ -8,22 +8,28 @@ export const handleLogin = async (formData: FormData) => {
     password: formData.get('password') as string,
   };
 
+  const loginSchema = z.object({
+    email: z.email('Please enter a valid email address'),
+    password: z.string().min(1, 'Password is required'),
+  });
+
+  // Validate the form data
+  const validationResult = loginSchema.safeParse(input);
+
+  if (!validationResult.success) {
+    return {
+      error: 'Validation failed. Please check your inputs.',
+      prevInputs: input,
+      validationErrors: validationResult.error.flatten().fieldErrors,
+    };
+  }
+
   try {
-    const { data } = await serverAPI.post('/auth/login', {
-      ...input,
+    await signIn('credentials', {
+      email: input.email,
+      password: input.password,
+      redirect: false,
     });
-
-    const cookieStore = await cookies();
-    cookieStore.set({
-      name: 'token',
-      value: data.access_token,
-      expires: new Date(Date.now() + 60 * 60 * 1000 * 24 * 8), // 8 days
-      path: '/',
-      httpOnly: false,
-      secure: false,
-      sameSite: 'lax',
-    });
-
     return {
       error: '',
       success: true,
@@ -34,7 +40,6 @@ export const handleLogin = async (formData: FormData) => {
     return {
       error: 'Login failed. Please check your credentials.',
       prevInputs: input,
-      validationErrors: {},
     };
   }
 };

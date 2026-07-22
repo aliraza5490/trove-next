@@ -1,5 +1,7 @@
 'use server';
-import { serverAPI } from '@/lib/server-api';
+import prisma from '@/lib/db';
+import { hashPassword } from '@/lib/password';
+import { sign } from 'crypto';
 import z from 'zod';
 
 export const handleSignUpAction = async (formData: FormData) => {
@@ -39,11 +41,26 @@ export const handleSignUpAction = async (formData: FormData) => {
   }
 
   try {
-    await serverAPI.post('/auth/signup', {
-      email: input.email,
-      password: input.password,
-      first_name: input.firstName,
-      last_name: input.lastName,
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: input.email },
+    });
+
+    if (existingUser) {
+      return {
+        error: 'User with this email already exists.',
+        prevInputs: input,
+      };
+    }
+
+    const hashedPassword = await hashPassword(input.password);
+    await prisma.user.create({
+      data: {
+        firstName: input.firstName,
+        lastName: input.lastName,
+        email: input.email,
+        password: hashedPassword,
+      },
     });
 
     return {
@@ -51,11 +68,10 @@ export const handleSignUpAction = async (formData: FormData) => {
       success: true,
       message: 'Sign up successful',
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Sign up failed:', error);
     return {
-      error:
-        error?.response?.data?.details || 'Sign up failed. Please try again.',
+      error: 'Sign up failed. Please try again.',
       prevInputs: input,
     };
   }

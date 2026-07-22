@@ -9,13 +9,50 @@
             "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
+            "python": "${workspaceFolder}/backend/.venv/bin/python",
             "cwd": "${workspaceFolder}/backend",
             "args": [
-                "app.main:app",
+                "main:app",
                 "--reload",
                 "--no-server-header"
             ],
             "jinja": true
+        },
+        {
+            "name": "Next.js: Server",
+            "type": "node-terminal",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/frontend",
+            "command": "pnpm dev"
+        },
+        {
+            "name": "Next.js: Chrome (Client)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:3000",
+            "webRoot": "${workspaceFolder}/frontend"
+        },
+        {
+            "name": "Next.js: Full Stack",
+            "type": "node-terminal",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/frontend",
+            "command": "pnpm dev",
+            "serverReadyAction": {
+                "pattern": "- Local:\\s+(https?://localhost:\\d+)",
+                "uriFormat": "%s",
+                "action": "debugWithChrome"
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "FastAPI & Next.js",
+            "configurations": [
+                "Python Debugger: FastAPI",
+                "Next.js: Server"
+            ],
+            "stopAll": true
         }
     ]
 }

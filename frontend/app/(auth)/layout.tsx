@@ -1,29 +1,16 @@
+'use client';
+
+import { usePathname } from "next/navigation";
 import Meeples from './_components/Meeples';
 import Logo from "@/components/logo";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import * as jwt from 'jsonwebtoken';
 
-const AuthLayout = async ({ children }: { children: React.ReactNode }) => {
-    const cookieStore = await cookies();
-    const user = cookieStore.get('token');
-  
-    if (user) {
-      try {
-        jwt.verify(user?.value || "", process.env.SECRET_KEY || "");
-        return redirect('/dashboard');
-      } catch (error: any) {
-        if (error?.message === "NEXT_REDIRECT") {
-          throw error; // Re-throw to handle the redirect properly
-        }
-      }
-    }
-  
-  
-  
+const AuthLayout = ({ children }: { children: React.ReactNode }) => {
+  const pathname = usePathname();
+  const isSignup = pathname === '/signup';
+
   return (
-    <div className="relative flex h-screen">
-      <div className="w-full lg:w-1/2 h-full grid place-items-center px-12">
+    <div className={`relative flex min-h-screen transition-colors duration-500 ${isSignup ? 'dark bg-background text-foreground' : 'bg-background text-foreground'}`}>
+      <div className="w-full lg:w-1/2 min-h-screen grid place-items-center py-12 px-12 z-10">
         <div className="w-full">
           <Logo />
           <main className="w-full gap-10 max-w-xl mx-auto">
@@ -31,7 +18,7 @@ const AuthLayout = async ({ children }: { children: React.ReactNode }) => {
           </main>
         </div>
       </div>
-      <div className="hidden w-1/2 h-full lg:block bg-gray-100">
+      <div className="hidden lg:block w-1/2 h-screen sticky top-0 transition-colors duration-500 bg-muted border-l border-border">
         <Meeples />
       </div>
     </div>

@@ -1,6 +1,11 @@
 allowBuilds:
+  '@google/genai': true
+  '@prisma/client': true
+  '@prisma/engines': true
   '@tailwindcss/oxide': true
   esbuild: true
+  prisma: true
+  protobufjs: true
   sharp: true
 onlyBuiltDependencies:
   - '@prisma/client'
@@ -9,3 +14,11 @@ onlyBuiltDependencies:
   - esbuild
   - prisma
   - sharp
+
+overrides:
+  "@types/react": "19.2.17"
+  "@types/react-dom": "19.2.3"
+
+peerDependencyRules:
+  allowedVersions:
+    next: "16.2.10"

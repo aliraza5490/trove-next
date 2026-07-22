@@ -1,3 +1,4 @@
+from jwt import warnings
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -33,7 +34,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     FRONTEND_HOST: str = "http://localhost:3000"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
-    COHERE_API_KEY: str
+    COHERE_API_KEY: str = ""
     VALID_UPLOAD_FILE_TYPES: list[str] = [
         'image/',
         'text/plain',
@@ -56,8 +57,8 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str
     # SENTRY_DSN: HttpUrl | None = None
-    POSTGRES_URL: str
-    GROQ_API_KEY: str
+    POSTGRES_URL: str = "postgresql://postgres:postgres@127.0.0.1:5432/trove"
+    GROQ_API_KEY: str = ""
     
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -66,7 +67,7 @@ class Settings(BaseSettings):
 
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
-    TAVILY_API_KEY: str
+    TAVILY_API_KEY: str = ""
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

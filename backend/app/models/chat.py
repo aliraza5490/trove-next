@@ -7,8 +7,8 @@ from sqlmodel import Column, DateTime, SQLModel, Field, Relationship, func
 
 
 class ChatBase(SQLModel):
-    title: Optional[Annotated[str, StringConstraints(
-        min_length=6, max_length=64)]] = Field()
+    title: Optional[str] = Field(default=None)
+
 
 
 class Chat(ChatBase, table=True):

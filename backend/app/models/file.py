@@ -9,6 +9,8 @@ class FileBase(SQLModel):
     file_name: str = Field()
     file_size: int = Field()
     file_path: str = Field()
+    google_uri: Optional[str] = Field(default=None)
+    mime_type: Optional[str] = Field(default=None)
 
 
 class File(FileBase, table=True):

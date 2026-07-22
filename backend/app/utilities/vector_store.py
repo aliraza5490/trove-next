@@ -20,7 +20,7 @@ VECTOR_SIZE = 1024
 pg_engine = PGEngine.from_engine(engine=engine)
 
 # noinspection PyArgumentList
-embedding = CohereEmbeddings(model="embed-english-v3.0", cohere_api_key=settings.COHERE_API_KEY)
+embedding = CohereEmbeddings(model="embed-english-v3.0", cohere_api_key=settings.COHERE_API_KEY or "placeholder_cohere_key")
 
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=20)
 

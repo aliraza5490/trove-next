@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -26,6 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+os.makedirs("uploads", exist_ok=True)
 app.mount("/api/v1/uploads", StaticFiles(directory="uploads"), name="static")
 
 
