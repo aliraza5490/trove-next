@@ -1,46 +1,25 @@
 'use server';
 
-import prisma from '@/lib/db';
-import { auth } from '@/auth';
+import { serverAPI } from '@/lib/server-api';
 import { revalidatePath } from 'next/cache';
 
 export async function renameChat(chatId: string, title: string) {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("Unauthorized");
-
-  const chat = await prisma.chat.findUnique({
-    where: { id: chatId },
-  });
-
-  if (!chat || chat.userId !== userId) {
-    throw new Error("Chat not found or unauthorized");
+  try {
+    await serverAPI.patch(`/chat/${chatId}/update`, { new_title: title });
+    revalidatePath('/dashboard');
+  } catch (err: any) {
+    console.error('Failed to rename chat:', err?.response?.data || err.message);
+    throw new Error('Failed to rename chat');
   }
-
-  await prisma.chat.update({
-    where: { id: chatId },
-    data: { title },
-  });
-
-  revalidatePath('/dashboard');
 }
 
 export async function deleteChat(chatId: string) {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("Unauthorized");
-
-  const chat = await prisma.chat.findUnique({
-    where: { id: chatId },
-  });
-
-  if (!chat || chat.userId !== userId) {
-    throw new Error("Chat not found or unauthorized");
+  try {
+    await serverAPI.delete(`/chat/${chatId}`);
+    revalidatePath('/dashboard');
+  } catch (err: any) {
+    console.error('Failed to delete chat:', err?.response?.data || err.message);
+    throw new Error('Failed to delete chat');
   }
-
-  await prisma.chat.delete({
-    where: { id: chatId },
-  });
-
-  revalidatePath('/dashboard');
 }
+

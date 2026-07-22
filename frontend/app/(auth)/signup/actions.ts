@@ -1,8 +1,7 @@
 'use server';
-import prisma from '@/lib/db';
-import { hashPassword } from '@/lib/password';
-import { sign } from 'crypto';
+import { cookies } from 'next/headers';
 import z from 'zod';
+import { serverAPI } from '@/lib/server-api';
 
 export const handleSignUpAction = async (formData: FormData) => {
   const input = {
@@ -16,7 +15,7 @@ export const handleSignUpAction = async (formData: FormData) => {
   const signUpSchema = z.object({
     firstName: z.string().min(1, 'First name is required').max(255),
     lastName: z.string().min(1, 'Last name is required').max(255),
-    email: z.email('Please enter a valid email address'),
+    email: z.string().email('Please enter a valid email address'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string().min(6, 'Please confirm your password'),
   });
@@ -41,38 +40,41 @@ export const handleSignUpAction = async (formData: FormData) => {
   }
 
   try {
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: input.email },
+    await serverAPI.post('/auth/register', {
+      email: input.email,
+      password: input.password,
+      first_name: input.firstName,
+      last_name: input.lastName,
     });
 
-    if (existingUser) {
-      return {
-        error: 'User with this email already exists.',
-        prevInputs: input,
-      };
+    // Auto-login after successful registration
+    const loginRes = await serverAPI.post('/auth/login', {
+      email: input.email,
+      password: input.password,
+    });
+
+    const access_token = loginRes.data?.access_token;
+    if (access_token) {
+      const cookieStore = await cookies();
+      cookieStore.set('token', access_token, {
+        path: '/',
+        httpOnly: true,
+        maxAge: 60 * 60 * 24 * 8,
+      });
     }
-
-    const hashedPassword = await hashPassword(input.password);
-    await prisma.user.create({
-      data: {
-        firstName: input.firstName,
-        lastName: input.lastName,
-        email: input.email,
-        password: hashedPassword,
-      },
-    });
 
     return {
       error: '',
       success: true,
       message: 'Sign up successful',
     };
-  } catch (error) {
-    console.error('Sign up failed:', error);
+  } catch (error: any) {
+    console.error('Sign up failed:', error?.response?.data || error.message);
+    const detail = error?.response?.data?.detail || 'Sign up failed. Please try again.';
     return {
-      error: 'Sign up failed. Please try again.',
+      error: detail,
       prevInputs: input,
     };
   }
 };
+

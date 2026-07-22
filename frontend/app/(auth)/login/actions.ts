@@ -1,6 +1,7 @@
 'use server';
-import { signIn } from '@/auth';
+import { cookies } from 'next/headers';
 import z from 'zod';
+import { serverAPI } from '@/lib/server-api';
 
 export const handleLogin = async (formData: FormData) => {
   const input = {
@@ -9,7 +10,7 @@ export const handleLogin = async (formData: FormData) => {
   };
 
   const loginSchema = z.object({
-    email: z.email('Please enter a valid email address'),
+    email: z.string().email('Please enter a valid email address'),
     password: z.string().min(1, 'Password is required'),
   });
 
@@ -25,21 +26,37 @@ export const handleLogin = async (formData: FormData) => {
   }
 
   try {
-    await signIn('credentials', {
+    const res = await serverAPI.post('/auth/login', {
       email: input.email,
       password: input.password,
-      redirect: false,
     });
+
+    const access_token = res.data?.access_token;
+    if (access_token) {
+      const cookieStore = await cookies();
+      cookieStore.set('token', access_token, {
+        path: '/',
+        httpOnly: true,
+        maxAge: 60 * 60 * 24 * 8, // 8 days
+      });
+      return {
+        error: '',
+        success: true,
+        message: 'Login successful',
+      };
+    } else {
+      return {
+        error: 'Login failed. Invalid token received.',
+        prevInputs: input,
+      };
+    }
+  } catch (error: any) {
+    console.error('Login failed:', error?.response?.data || error.message);
+    const detail = error?.response?.data?.detail || 'Login failed. Please check your credentials.';
     return {
-      error: '',
-      success: true,
-      message: 'Login successful',
-    };
-  } catch (error) {
-    console.error('Login failed:', error);
-    return {
-      error: 'Login failed. Please check your credentials.',
+      error: detail,
       prevInputs: input,
     };
   }
 };
+

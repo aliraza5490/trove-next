@@ -1,14 +1,20 @@
-import { auth } from "@/auth";
 import { SignupForm } from "./components/SignupForm";
 import { redirect } from "next/navigation";
+import { serverAPI } from "@/lib/server-api";
 
 const SignupPage = async () => {
-    const session = await auth()
-    if (session?.user) return redirect('/dashboard')
+  try {
+    const res = await serverAPI.post('/auth/protected');
+    if (res.data?.user) {
+      return redirect('/dashboard');
+    }
+  } catch {
+    // Not authenticated
+  }
   
   return (
     <div>
-        <SignupForm />
+      <SignupForm />
     </div>
   );
 }

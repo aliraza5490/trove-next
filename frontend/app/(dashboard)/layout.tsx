@@ -17,9 +17,9 @@ import {
 } from '@/components/ui/sidebar';
 import { NavUser } from '@/app/(dashboard)/dashboard/components/NavUser';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { auth } from '@/auth';
 import Logo from "@/components/logo";
 import { redirect } from "next/navigation";
+import { serverAPI } from '@/lib/server-api';
 
 import { TopNav } from '@/app/(dashboard)/dashboard/components/TopNav';
 import { CommandMenu } from '@/components/command-menu';
@@ -29,15 +29,21 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-  const user = session?.user;
+  let user: any = null;
+  try {
+    const res = await serverAPI.post('/auth/protected');
+    user = res.data?.user;
+  } catch {
+    // Unauthenticated
+  }
 
   if (!user) {
     return redirect('/login');
   }
 
-
+  const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'User';
   const avatar = '/images/max.jpg';
+
 
   return (
     <SidebarProvider>
@@ -60,7 +66,7 @@ export default async function DashboardLayout({
 
         <SidebarSeparator />
         <SidebarFooter>
-          <NavUser user={{ name: user?.name ?? 'User', email: (user as any)?.email ?? 'user@example.com', avatar }} />
+          <NavUser user={{ name: userName, email: user?.email ?? 'user@example.com', avatar }} />
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>

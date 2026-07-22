@@ -1,49 +1,36 @@
 import React from 'react';
-import { auth } from '@/auth';
-import prisma from '@/lib/db';
 import { redirect } from 'next/navigation';
 import ChatClient from '../components/ChatClient';
+import { serverAPI } from '@/lib/server-api';
 
 export default async function ChatPage({ params }: { params: Promise<{ chatId: string }> }) {
   const { chatId } = await params;
-  const session = await auth();
-  const userId = session?.user?.id;
 
-  if (!userId) {
-    return redirect('/login');
-  }
-
-  const chat = await prisma.chat.findUnique({
-    where: { id: chatId },
-    include: {
-      messages: {
-        orderBy: { createdAt: 'asc' },
-        include: {
-          attachments: true,
-        },
-      },
-    },
-  });
-
-  if (!chat || chat.userId !== userId) {
+  let initialMessages: any[] = [];
+  try {
+    const res = await serverAPI.get(`/chat/${chatId}`);
+    const data = res.data;
+    if (data?.messages) {
+      initialMessages = data.messages.map((m: any) => ({
+        id: m.id,
+        role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: m.content || m.message || '',
+        attachments: (m.attachments || []).map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          url: a.url,
+          googleUri: a.googleUri,
+          mimeType: a.mimeType,
+          size: a.size,
+        })),
+      }));
+    }
+  } catch (err) {
+    console.error(`Failed to load chat ${chatId}:`, err);
     return redirect('/dashboard');
   }
 
-  // Format messages matching ChatClient's Message type
-  const initialMessages = chat.messages.map((m) => ({
-    id: m.id,
-    role: m.role as "user" | "assistant",
-    content: m.content,
-    attachments: m.attachments.map((a) => ({
-      id: a.id,
-      name: a.name,
-      url: a.url,
-      googleUri: a.googleUri,
-      mimeType: a.mimeType,
-      size: a.size,
-    })),
-  }));
-
   return <ChatClient chatId={chatId} initialMessages={initialMessages} key={chatId} />;
 }
+
 

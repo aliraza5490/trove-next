@@ -1,7 +1,5 @@
-import { auth } from '@/auth';
-import prisma from '@/lib/db';
+import { serverAPI } from '@/lib/server-api';
 import RecentChatsClient from "./RecentChatsClient";
-import { generateChatTitle } from '@/agent';
 
 type Chat = {
   id: string;
@@ -9,7 +7,9 @@ type Chat = {
   updatedAt: string;
 };
 
-function formatRelativeTime(date: Date) {
+function formatRelativeTime(dateStr?: string) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -25,54 +25,19 @@ function formatRelativeTime(date: Date) {
 }
 
 export default async function RecentChats() {
-  const session = await auth();
-  const userId = session?.user?.id;
-
-  if (!userId) {
-    return <div className="text-sm text-muted-foreground px-2 py-4">Not logged in</div>;
+  let dbChats: any[] = [];
+  try {
+    const res = await serverAPI.get('/chat/list');
+    dbChats = Array.isArray(res.data) ? res.data : [];
+  } catch (err) {
+    console.error('Failed to fetch chat list:', err);
   }
 
-  const dbChats = await prisma.chat.findMany({
-    where: { userId },
-    orderBy: { updatedAt: 'desc' },
-    include: {
-      messages: {
-        take: 1,
-        orderBy: { createdAt: 'asc' },
-      },
-    },
-  });
-
-  const chats: Chat[] = await Promise.all(
-    dbChats.map(async (chat) => {
-      let currentTitle = chat.title;
-
-      // Auto-upgrade old truncated titles (ending with "...") or plain "if else"
-      if (currentTitle.endsWith('...') || currentTitle.toLowerCase() === 'if else') {
-        const firstUserMessage = chat.messages[0]?.content;
-        if (firstUserMessage) {
-          try {
-            const upgradedTitle = await generateChatTitle(firstUserMessage);
-            if (upgradedTitle && upgradedTitle !== currentTitle) {
-              currentTitle = upgradedTitle;
-              prisma.chat.update({
-                where: { id: chat.id },
-                data: { title: upgradedTitle },
-              }).catch((err) => console.error('Failed to update chat title in DB:', err));
-            }
-          } catch (err) {
-            console.error('Failed to auto-upgrade title:', err);
-          }
-        }
-      }
-
-      return {
-        id: chat.id,
-        title: currentTitle,
-        updatedAt: formatRelativeTime(chat.updatedAt),
-      };
-    })
-  );
+  const chats: Chat[] = dbChats.map((chat: any) => ({
+    id: chat.id,
+    title: chat.title || 'Untitled Chat',
+    updatedAt: formatRelativeTime(chat.updated_at || chat.created_at),
+  }));
 
   if (!chats.length) {
     return (
@@ -82,3 +47,4 @@ export default async function RecentChats() {
 
   return <RecentChatsClient initialChats={chats} />;
 }
+
