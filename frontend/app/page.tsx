@@ -161,7 +161,7 @@ export default async function Home() {
       {/* How it works */}
       <section
         id="how-it-works"
-        className="mx-auto max-w-7xl px-6 pb-20 scroll-mt-24"
+        className="mx-auto max-w-5xl px-6 pb-20 scroll-mt-24"
       >
         <div className="text-center mb-8">
           <h2 className="text-2xl sm:text-3xl font-semibold">How it works</h2>
