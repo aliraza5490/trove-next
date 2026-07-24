@@ -9,11 +9,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, Settings } from 'lucide-react';
+import { logout } from '@/app/(dashboard)/dashboard/actions';
+import { clearAuthToken } from '@/lib/auth';
 
 export default function UserMenu() {
-  const handleLogout = () => {
-    // Use NextAuth signout endpoint with a callback
-    window.location.href = '/api/auth/signout?callbackUrl=/';
+  const handleLogout = async () => {
+    clearAuthToken();
+    await logout();
+    window.location.href = '/login';
   };
 
   return (

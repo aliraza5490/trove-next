@@ -43,7 +43,7 @@ export default async function DashboardLayout({
 
   const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'User';
   const avatar = '/images/max.jpg';
-
+  const userData = { name: userName, email: user?.email ?? 'user@example.com', avatar };
 
   return (
     <SidebarProvider>
@@ -66,13 +66,13 @@ export default async function DashboardLayout({
 
         <SidebarSeparator />
         <SidebarFooter>
-          <NavUser user={{ name: userName, email: user?.email ?? 'user@example.com', avatar }} />
+          <NavUser user={userData} />
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
 
       <SidebarInset>
-        <TopNav />
+        <TopNav user={userData} />
         <div className="min-h-[calc(100dvh-3.25rem)]">{children}</div>
       </SidebarInset>
       <CommandMenu />

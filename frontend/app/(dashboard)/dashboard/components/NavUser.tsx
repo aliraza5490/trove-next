@@ -29,6 +29,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { logout } from "@/app/(dashboard)/dashboard/actions";
+import { clearAuthToken } from "@/lib/auth";
 
 export function NavUser({
   user,
@@ -41,8 +43,10 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
 
-  const handleLogout = () => {
-    window.location.href = '/api/auth/signout?callbackUrl=/';
+  const handleLogout = async () => {
+    clearAuthToken();
+    await logout();
+    window.location.href = "/login";
   }
 
   return (

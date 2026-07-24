@@ -10,10 +10,12 @@ const AuthLayout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <div className={`relative flex min-h-screen transition-colors duration-500 ${isSignup ? 'dark bg-background text-foreground' : 'bg-background text-foreground'}`}>
-      <div className="w-full lg:w-1/2 min-h-screen grid place-items-center py-12 px-12 z-10">
-        <div className="w-full">
-          <Logo />
-          <main className="w-full gap-10 max-w-xl mx-auto">
+      <div className="w-full lg:w-1/2 min-h-screen flex items-center justify-center p-6 sm:p-12 z-10">
+        <div className="w-full max-w-xl flex flex-col gap-6">
+          <div className="flex items-center justify-center">
+            <Logo size="lg" className="justify-center px-0 py-0" />
+          </div>
+          <main className="w-full">
             {children}
           </main>
         </div>
