@@ -94,7 +94,7 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
         return (
           <SidebarMenuItem key={c.id}>
             {isEditing ? (
-              <div className="flex items-center gap-2 rounded-lg p-2 h-13">
+              <div className="flex items-center gap-1.5 rounded-md p-1 h-8.5">
                 <Input
                   value={draftTitle}
                   onChange={(e) => setDraftTitle(e.target.value)}
@@ -103,15 +103,15 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
                     if (e.key === 'Escape') cancelEdit();
                   }}
                   aria-label="Chat title"
-                  className="h-8 text-sm"
+                  className="h-7 text-xs px-2"
                   autoFocus
                 />
-                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => saveEdit(c.id)}>
-                  <Check className="h-4 w-4" />
+                <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => saveEdit(c.id)}>
+                  <Check className="h-3.5 w-3.5" />
                   <span className="sr-only">Save</span>
                 </Button>
-                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={cancelEdit}>
-                  <X className="h-4 w-4" />
+                <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={cancelEdit}>
+                  <X className="h-3.5 w-3.5" />
                   <span className="sr-only">Cancel</span>
                 </Button>
               </div>
@@ -121,21 +121,21 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
                   asChild
                   isActive={isActive}
                   className={cn(
-                    "h-11 pl-2.5 pr-8! rounded-lg transition-all duration-150 ease-in-out flex items-center justify-between gap-1.5 group/row min-w-0",
+                    "h-8.5 pl-2 pr-7! rounded-md transition-all duration-150 ease-in-out flex items-center justify-between gap-1 group/row min-w-0",
                     "hover:bg-sidebar-accent/70 dark:hover:bg-white/[0.06]",
                     "active:scale-[0.985] active:bg-sidebar-accent/80",
-                    isActive && "bg-sidebar-accent/90 text-sidebar-accent-foreground font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.25)] border-l-2 border-primary pl-2"
+                    isActive && "bg-sidebar-accent/90 text-sidebar-accent-foreground font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.25)] border-l-2 border-primary pl-1.5"
                   )}
                 >
-                  <Link href={`/dashboard/${c.id}`} className="flex min-w-0 w-full items-center justify-between gap-1.5">
-                    <span className="truncate min-w-0 flex-1 text-sm font-medium">{c.title}</span>
-                    <span className="text-[11px] font-normal text-muted-foreground/60 shrink-0 text-right tracking-tight pl-1">{c.updatedAt}</span>
+                  <Link href={`/dashboard/${c.id}`} className="flex min-w-0 w-full items-center justify-between gap-1">
+                    <span className="truncate min-w-0 flex-1 text-xs font-medium">{c.title}</span>
+                    <span className="text-[10px] font-normal text-muted-foreground/60 shrink-0 text-right tracking-tight pl-1">{c.updatedAt}</span>
                   </Link>
                 </SidebarMenuButton>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <SidebarMenuAction aria-label="More actions" showOnHover className="right-1.5">
-                      <MoreVertical className="h-4 w-4" />
+                    <SidebarMenuAction aria-label="More actions" showOnHover className="right-1 h-6 w-6">
+                      <MoreVertical className="h-3.5 w-3.5" />
                     </SidebarMenuAction>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent side="right" align="end">

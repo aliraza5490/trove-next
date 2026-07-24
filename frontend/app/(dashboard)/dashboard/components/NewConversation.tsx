@@ -13,8 +13,8 @@ export default function NewConversation() {
 	};
 
 	return (
-		<Button onClick={handleNewChat} className="w-full" size="lg">
-			<Plus className="size-4" />
+		<Button onClick={handleNewChat} className="w-full h-8.5 text-xs font-medium gap-1.5" size="sm">
+			<Plus className="size-3.5" />
 			New chat
 		</Button>
 	);

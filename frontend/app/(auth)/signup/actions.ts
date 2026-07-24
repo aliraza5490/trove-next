@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import z from 'zod';
 import { serverAPI } from '@/lib/server-api';
 
-export const handleSignUpAction = async (formData: FormData) => {
+export const handleSignUpAction = async (prevState: any, formData: FormData) => {
   const input = {
     email: formData.get('email') as string,
     password: formData.get('password') as string,
@@ -70,9 +70,23 @@ export const handleSignUpAction = async (formData: FormData) => {
     };
   } catch (error: any) {
     console.error('Sign up failed:', error?.response?.data || error.message);
-    const detail = error?.response?.data?.detail || 'Sign up failed. Please try again.';
+    const rawDetail = error?.response?.data?.detail;
+    let detailMessage = 'Sign up failed. Please try again.';
+
+    if (typeof rawDetail === 'string') {
+      detailMessage = rawDetail;
+    } else if (Array.isArray(rawDetail)) {
+      detailMessage = rawDetail
+        .map((item: any) => (typeof item === 'string' ? item : item?.msg || JSON.stringify(item)))
+        .join('; ');
+    } else if (rawDetail && typeof rawDetail === 'object') {
+      detailMessage = rawDetail.msg || rawDetail.message || JSON.stringify(rawDetail);
+    } else if (error?.message && typeof error.message === 'string') {
+      detailMessage = error.message;
+    }
+
     return {
-      error: detail,
+      error: detailMessage,
       prevInputs: input,
     };
   }

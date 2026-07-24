@@ -112,10 +112,13 @@ class ChatService:
                     })
 
                 if text:
-                    docs = text_splitter.create_documents([text])
-                    metadata = [{"type": "attachment", "file_id": str(file.id), "chat_id": str(chat.id)} for _ in docs]
-                    docs = text_splitter.create_documents([text], metadatas=metadata)
-                    await vector_store.aadd_documents(docs, ids=[str(uuid4()) for _ in docs])
+                    try:
+                        docs = text_splitter.create_documents([text])
+                        metadata = [{"type": "attachment", "file_id": str(file.id), "chat_id": str(chat.id)} for _ in docs]
+                        docs = text_splitter.create_documents([text], metadatas=metadata)
+                        await vector_store.aadd_documents(docs, ids=[str(uuid4()) for _ in docs])
+                    except Exception as e:
+                        print(f"[VectorStore] Document indexing failed: {e}")
 
         # 2. Handle attachments passed as JSON list (from standalone upload)
         if attachments:
@@ -175,36 +178,53 @@ class ChatService:
         )
         messages = chat_messages.all()
 
-        context_docs = await vector_store.asimilarity_search(query=message, k=5, filter={"type": "upload"})
-        context = " ".join([doc.page_content for doc in context_docs])
+        context = ""
+        upload_context = ""
+        try:
+            context_docs = await vector_store.asimilarity_search(query=message, k=5, filter={"type": "upload"})
+            context = " ".join([doc.page_content for doc in context_docs])
+        except Exception as e:
+            print(f"[VectorStore] Similarity search (upload) failed: {e}")
 
-        uploaded_docs = await vector_store.asimilarity_search(
-            query=message, k=5, filter={"type": "attachment", "chat_id": str(chat.id)}
-        )
-        upload_context = " ".join([doc.page_content for doc in uploaded_docs])
+        try:
+            uploaded_docs = await vector_store.asimilarity_search(
+                query=message, k=5, filter={"type": "attachment", "chat_id": str(chat.id)}
+            )
+            upload_context = " ".join([doc.page_content for doc in uploaded_docs])
+        except Exception as e:
+            print(f"[VectorStore] Similarity search (attachment) failed: {e}")
 
         await session.commit()
         created_chat_id = str(chat.id)
 
         async def generate():
             full_response = ""
-            async for chunk in TroveAgent.stream_response(
-                message=message,
-                history_messages=[
-                    {
-                        "role": m.role.value if hasattr(m.role, "value") else str(m.role),
-                        "message": m.message
+            try:
+                async for chunk in TroveAgent.stream_response(
+                    message=message,
+                    history_messages=[
+                        {
+                            "role": m.role.value if hasattr(m.role, "value") else str(m.role),
+                            "message": m.message
+                        }
+                        for m in messages[:-1] # history except current prompt
+                    ],
+                    web_search=web_search,
+                    context_text=context,
+                    upload_context=upload_context,
+                    attachments_media=attachments_media,
+                ):
+                    full_response += chunk
+                    event = {
+                        "content": chunk,
+                        "type": "message"
                     }
-                    for m in messages[:-1] # history except current prompt
-                ],
-                web_search=web_search,
-                context_text=context,
-                upload_context=upload_context,
-                attachments_media=attachments_media,
-            ):
-                full_response += chunk
+                    yield f"data: {json.dumps(event)}\n\n"
+            except Exception as err:
+                err_msg = f"\n\n**Error:** Unable to generate response ({err}). Please verify API credentials in `backend/.env`."
+                full_response += err_msg
                 event = {
-                    "content": chunk,
+                    "content": err_msg,
                     "type": "message"
                 }
                 yield f"data: {json.dumps(event)}\n\n"

@@ -265,26 +265,87 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
 
       let done = false;
       let assistantText = "";
+      let buffer = "";
+      let streamCreatedChatId: string | null = null;
 
       while (!done) {
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
         if (value) {
-          const chunk = decoder.decode(value);
-          assistantText += chunk;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          // Keep the last incomplete line in the buffer
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+
+            if (trimmed.startsWith("data: ")) {
+              const dataStr = trimmed.slice(6).trim();
+              try {
+                const parsed = JSON.parse(dataStr);
+                if (parsed.type === "message" && parsed.content) {
+                  assistantText += parsed.content;
+                } else if (parsed.type === "end" && parsed.content) {
+                  streamCreatedChatId = parsed.content;
+                }
+              } catch {
+                // If not JSON, treat data string as text content
+                assistantText += dataStr;
+              }
+            } else {
+              // Fallback for non-SSE streamed text
+              assistantText += trimmed;
+            }
+          }
+
           setMessages((prev) =>
             prev.map((m) => (m.id === assistantId ? { ...m, content: assistantText } : m))
           );
         }
       }
 
-      if (newChatId && newChatId !== chatId) {
-        router.push(`/dashboard/${newChatId}`);
+      // Process any remaining tail in buffer
+      if (buffer.trim()) {
+        const trimmed = buffer.trim();
+        if (trimmed.startsWith("data: ")) {
+          const dataStr = trimmed.slice(6).trim();
+          try {
+            const parsed = JSON.parse(dataStr);
+            if (parsed.type === "message" && parsed.content) {
+              assistantText += parsed.content;
+            } else if (parsed.type === "end" && parsed.content) {
+              streamCreatedChatId = parsed.content;
+            }
+          } catch {
+            assistantText += dataStr;
+          }
+        } else {
+          assistantText += trimmed;
+        }
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantId ? { ...m, content: assistantText } : m))
+        );
+      }
+
+      const finalChatId = newChatId || streamCreatedChatId;
+      if (finalChatId && finalChatId !== chatId) {
+        router.push(`/dashboard/${finalChatId}`);
         router.refresh();
       }
     } catch (err: any) {
       console.error("Failed to send message:", err);
-      toast.error(err.message || "Failed to generate AI response");
+      let errMsg = "Failed to generate AI response";
+      if (typeof err?.message === "string") {
+        try {
+          const parsed = JSON.parse(err.message);
+          errMsg = parsed.message || parsed.detail || err.message;
+        } catch {
+          errMsg = err.message;
+        }
+      }
+      toast.error(errMsg);
       setMessages((prev) => prev.filter((m) => m.id !== assistantId));
     } finally {
       setIsStreaming(false);

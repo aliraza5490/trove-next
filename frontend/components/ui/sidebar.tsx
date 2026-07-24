@@ -27,8 +27,8 @@ import {
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "17.25rem"
-const SIDEBAR_WIDTH_MOBILE = "17.25rem"
+const SIDEBAR_WIDTH = "14rem"
+const SIDEBAR_WIDTH_MOBILE = "14rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
@@ -405,7 +405,7 @@ function SidebarGroupLabel({
       data-slot="sidebar-group-label"
       data-sidebar="group-label"
       className={cn(
-        "text-sidebar-foreground/60 ring-sidebar-ring flex h-9 shrink-0 items-center rounded-md px-2 text-[12px] font-semibold uppercase tracking-wider outline-hidden transition-[margin,opacity] duration-200 ease-linear focus-visible:ring-2 my-1 [&>svg]:size-4 [&>svg]:shrink-0",
+        "text-sidebar-foreground/60 ring-sidebar-ring flex h-6 shrink-0 items-center rounded-md px-2 text-[11px] font-semibold uppercase tracking-wider outline-hidden transition-[margin,opacity] duration-200 ease-linear focus-visible:ring-2 my-0.5 [&>svg]:size-3.5 [&>svg]:shrink-0",
         "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0",
         className
       )}

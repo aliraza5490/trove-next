@@ -14,7 +14,6 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 // --- Token storage helpers
 async function getToken() {
   try {
-    if (typeof window === 'undefined') return null;
     const cookieStore = await cookies();
     return cookieStore.get('token') || null;
   } catch {

@@ -9,9 +9,9 @@ class UserBase(SQLModel):
     email: Annotated[EmailStr, StringConstraints(
         min_length=4, max_length=64)] = Field(unique=True, index=True)
     first_name: Optional[Annotated[str, StringConstraints(
-        min_length=6, max_length=64)]] = Field()
+        min_length=1, max_length=64)]] = Field(default=None)
     last_name: Optional[Annotated[str, StringConstraints(
-        min_length=6, max_length=64)]] = Field()
+        min_length=1, max_length=64)]] = Field(default=None)
 
 
 class UserLogin(SQLModel):

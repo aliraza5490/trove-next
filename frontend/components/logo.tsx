@@ -13,9 +13,9 @@ const Logo = ({
     className
 }: ILogoProps) => {
   return (
-    <Link href={link} className={cn("flex items-center justify-center gap-2 py-4", className)}>
-        <Bot aria-hidden className="size-12 text-primary" />
-        <span className="font-semibold text-xl">Trove</span>
+    <Link href={link} className={cn("flex items-center justify-start gap-2 py-2 px-1", className)}>
+        <Bot aria-hidden className="size-7 text-primary" />
+        <span className="font-semibold text-lg">Trove</span>
     </Link>
   )
 }

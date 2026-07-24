@@ -7,28 +7,31 @@ import Link from 'next/link';
 import { handleSignUpAction } from '../actions';
 import { useActionState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 export function SignupForm() {
-  const [state, formAction, isPending] = useActionState(
-    (prevState: any, formData: FormData) => handleSignUpAction(formData),
-    null,
-  );
+  const router = useRouter();
+  const [state, formAction, isPending] = useActionState(handleSignUpAction, null);
 
   const fieldErrors = state?.validationErrors as
     | Record<string, string[] | undefined>
     | undefined;
 
+  const errorMessage = typeof state?.error === 'string'
+    ? state.error
+    : state?.error
+      ? String(state.error)
+      : '';
+
   useEffect(() => {
     if (state?.success) {
-      // Redirect to the home page or dashboard after successful sign up
       toast.success('Sign up successful! Redirecting...');
-      redirect('/login'); // Redirect to login page after successful sign up
+      router.push('/dashboard');
     }
-    if (state?.error) {
-      toast.error(state?.error);
+    if (errorMessage) {
+      toast.error(errorMessage);
     }
-  }, [state]);
+  }, [state, errorMessage, router]);
 
   return (
     <>
@@ -151,11 +154,11 @@ export function SignupForm() {
                 {isPending ? 'Creating account...' : 'Sign up'}
               </Button>
               {/* Form-level error */}
-              {state?.error && (
+              {errorMessage ? (
                 <p className="text-sm text-red-600" role="alert" aria-live="polite">
-                  {state.error}
+                  {errorMessage}
                 </p>
-              )}
+              ) : null}
 
               <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
                 <span className="relative z-10 bg-card px-2 text-muted-foreground">

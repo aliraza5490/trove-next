@@ -2,8 +2,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
-from fastapi import HTTPException, status, Depends
-from fastapi.security import HTTPBearer
+from fastapi import HTTPException, status, Depends, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -22,7 +22,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # auth scheme for token
-auth_scheme = HTTPBearer(description="Token")
+auth_scheme = HTTPBearer(description="Token", auto_error=False)
 
 
 def get_password_hash(password):
@@ -59,18 +59,12 @@ async def get_db_user(token_data: TokenData, session: AsyncSession):
 
 
 async def get_user_from_token(
-        token=Depends(auth_scheme),
+        request: Request,
+        token: Optional[HTTPAuthorizationCredentials] = Depends(auth_scheme),
         session=Depends(get_session)  # This will be overridden when used
 ):
     """
     A reusable dependency that validates a JWT token and returns the current user.
-    
-    Usage:
-    ```
-    @app.get("/protected")
-    def protected_route(user = Depends(get_user_from_token)):
-        return {"user": user}
-    ```
     """
 
     # Move this import inside the function to avoid circular imports
@@ -82,13 +76,26 @@ async def get_user_from_token(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+    raw_token = None
+    if token and token.credentials:
+        raw_token = token.credentials
+    else:
+        raw_token = request.cookies.get("token")
+        if not raw_token:
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                raw_token = auth_header.split(" ")[1]
+
+    if not raw_token:
+        raise credentials_exception
+
     try:
-        payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(raw_token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("email")
         user_id: str = payload.get("id")
-        if email is None or id is None:
+        if email is None or user_id is None:
             raise credentials_exception
         token_data = TokenData(id=user_id, email=email)
         return token_data
-    except jwt.PyJWTError as e:
+    except jwt.PyJWTError:
         raise credentials_exception
