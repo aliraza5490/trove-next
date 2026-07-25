@@ -12,25 +12,6 @@ export const useChatListQuery = () => {
   });
 };
 
-export const createChatMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (message: string) => {
-      const { data } = await clientAPI.post(
-        `/chat/create?message=${encodeURIComponent(message)}`,
-      );
-      return data;
-    },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to create chat');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-list'] });
-      toast.success('Chat created');
-    },
-  });
-};
-
 export const deleteChatMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({

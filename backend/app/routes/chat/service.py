@@ -24,15 +24,6 @@ from app.utilities.vector_store import text_splitter, get_vector_store
 
 class ChatService:
     @classmethod
-    async def create_chat(cls, message: str, user: TokenData, session: AsyncSession):
-        title_text = await TroveAgent.generate_title(message)
-        chat = Chat(title=title_text, user_id=user.id)
-        session.add(chat)
-        await session.commit()
-        await session.refresh(chat)
-        return chat
-
-    @classmethod
     async def create_message(
         cls,
         message: str,

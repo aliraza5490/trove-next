@@ -1,5 +1,4 @@
 from typing import Annotated, Optional
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, UploadFile, Body, Query, Request
 
@@ -13,7 +12,6 @@ chat_router = APIRouter(prefix="/chat", tags=[Tags.chat])
 
 
 @chat_router.post("", description="Send message or create chat", summary="Send Message")
-@chat_router.post("/message", description="Send a message in a chat", summary="Create Message")
 async def send_message(
     req: Request,
     session=Depends(get_session),
@@ -54,15 +52,6 @@ async def send_message(
     )
 
 
-@chat_router.post("/create", description="Create a new chat with an initial message", summary="Create Chat")
-async def create_chat(
-    message: Annotated[str, Body(embed=True)],
-    session=Depends(get_session),
-    user: TokenData = Depends(get_user_from_token)
-):
-    return await ChatService.create_chat(message=message, user=user, session=session)
-
-
 @chat_router.get("/search", description="Search chats by title or message content", summary="Search Chats")
 async def search_chats(
     q: Optional[str] = Query(default=""),
@@ -99,7 +88,6 @@ async def get_chat_history(
 
 
 @chat_router.patch("/{chat_id}/update", description="Update chat title", summary="Update Chat Title")
-@chat_router.put("/{chat_id}", description="Update chat title", summary="Update Chat Title")
 async def update_chat_title(
     chat_id: str,
     new_title: Annotated[str, Body(embed=True)],
@@ -109,7 +97,6 @@ async def update_chat_title(
     return await ChatService.update_chat_title(chat_id=chat_id, new_title=new_title, session=session)
 
 
-@chat_router.delete("/{chat_id}/delete", description="Delete chat", summary="Delete Chat")
 @chat_router.delete("/{chat_id}", description="Delete chat", summary="Delete Chat")
 async def delete_chat(
     chat_id: str,
@@ -127,4 +114,3 @@ async def update_chat_agent(
     user: TokenData = Depends(get_user_from_token)
 ):
     return await ChatService.update_chat_agent(chat_id=chat_id, agent=agent, user=user, session=session)
-
