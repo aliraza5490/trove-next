@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useDeleteFileMutation, useFilesQuery } from '../hooks';
 import FileCard from './file-card';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { IFile } from '../types';
 
 const PAGE_SIZE = 15;
 
@@ -10,6 +12,7 @@ const RecentFilesSection = () => {
   const [page, setPage] = useState(1);
   const { isLoading, data } = useFilesQuery(page);
   const { isPending, mutateAsync } = useDeleteFileMutation();
+  const [fileToDelete, setFileToDelete] = useState<IFile | null>(null);
 
   const total = data?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -19,9 +22,14 @@ const RecentFilesSection = () => {
   const goToPage = (p: number) => {
     setPage(Math.min(Math.max(1, p), totalPages));
   };
-  const handleDeleteFile = async (id: string) => {
-    if (isPending) return;
-    await mutateAsync(id);
+
+  const handleConfirmDelete = async () => {
+    if (!fileToDelete || isPending) return;
+    try {
+      await mutateAsync(fileToDelete.id);
+    } finally {
+      setFileToDelete(null);
+    }
   };
 
   if (isLoading) {
@@ -36,7 +44,11 @@ const RecentFilesSection = () => {
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {data.data.map((file: any) => (
-            <FileCard key={file.id} file={file} onDelete={handleDeleteFile} />
+            <FileCard
+              key={file.id}
+              file={file}
+              onDelete={() => setFileToDelete(file)}
+            />
           ))}
           {data.data.length === 0 && (
             <div className="col-span-1 text-muted-foreground">
@@ -86,6 +98,23 @@ const RecentFilesSection = () => {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={!!fileToDelete}
+        onOpenChange={(open) => {
+          if (!open && !isPending) setFileToDelete(null);
+        }}
+        title="Delete File"
+        description={
+          <>
+            Are you sure you want to delete <span className="font-semibold text-foreground">&quot;{fileToDelete?.file_name}&quot;</span>? This action cannot be undone.
+          </>
+        }
+        confirmText="Delete File"
+        variant="destructive"
+        loading={isPending}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 };

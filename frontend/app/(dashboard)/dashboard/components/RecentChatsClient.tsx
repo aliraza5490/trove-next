@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 
 export type Chat = {
   id: string;
@@ -39,6 +40,8 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
+  const [chatToDelete, setChatToDelete] = useState<Chat | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const startEdit = (id: string, currentTitle: string) => {
     setEditingId(id);
@@ -68,21 +71,22 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
     }
   };
 
-  const deleteChat = async (id: string) => {
-    const target = chats.find((c) => c.id === id);
-    if (!target) return;
-    const ok = window.confirm(`Delete chat "${target.title}"?`);
-    if (!ok) return;
+  const handleConfirmDelete = async () => {
+    if (!chatToDelete) return;
+    setIsDeleting(true);
     try {
-      await deleteChatAction(id);
-      setChats((prev) => prev.filter((c) => c.id !== id));
+      await deleteChatAction(chatToDelete.id);
+      setChats((prev) => prev.filter((c) => c.id !== chatToDelete.id));
       toast.success('Chat deleted');
-      if (pathname === `/dashboard/${id}`) {
+      if (pathname === `/dashboard/${chatToDelete.id}`) {
         router.push('/dashboard');
       }
       router.refresh();
     } catch (e: any) {
       toast.error(e.message || 'Failed to delete chat');
+    } finally {
+      setIsDeleting(false);
+      setChatToDelete(null);
     }
   };
 
@@ -144,7 +148,7 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
                       Rename
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" onSelect={() => deleteChat(c.id)}>
+                    <DropdownMenuItem variant="destructive" onSelect={() => setChatToDelete(c)}>
                       <Trash2 className="h-4 w-4" />
                       Delete
                     </DropdownMenuItem>
@@ -155,6 +159,23 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
           </SidebarMenuItem>
         );
       })}
+
+      <ConfirmModal
+        open={!!chatToDelete}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setChatToDelete(null);
+        }}
+        title="Delete Chat"
+        description={
+          <>
+            Are you sure you want to delete <span className="font-semibold text-foreground">&quot;{chatToDelete?.title}&quot;</span>? This action cannot be undone.
+          </>
+        }
+        confirmText="Delete Chat"
+        variant="destructive"
+        loading={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </>
   );
 }
