@@ -568,7 +568,7 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
           <div className="px-2 sm:px-4">
             <div
               ref={scrollRef}
-              className={cn("h-[calc(100dvh-15.6rem)] overflow-y-auto pr-1 sm:pr-2", selectedDocs.length > 0 && "h-[calc(100dvh-18.6rem)]")}
+              className={cn("h-[calc(100dvh-15.6rem)] overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pr-1 sm:pr-2", selectedDocs.length > 0 && "h-[calc(100dvh-18.6rem)]")}
             >
               <MessageList messages={messages} />
             </div>

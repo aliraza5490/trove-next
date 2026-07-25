@@ -9,7 +9,7 @@ import rehypeRaw from 'rehype-raw';
 
 export default function MessageList({ messages }: { messages: Message[] }) {
   return (
-    <div className="mx-auto w-full overflow-y-auto">
+    <div className="mx-auto w-full overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       <ul className="space-y-6 max-w-3xl mx-auto">
         {messages.map((m) => (
           <li key={m.id}>
