@@ -32,8 +32,12 @@ import {
   AgentOption,
   AGENT_OPTIONS,
 } from "./chat/AgentDropdown";
+import { clientAPI } from "@/lib/client-api";
+import { getAuthToken } from "@/lib/auth";
+import { useQueryClient } from "@tanstack/react-query";
+import { useUpdateChatAgentMutation, useUploadFileMutation } from "../hooks";
 
-
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000/api/v1";
 
 type Attachment = {
   id: string;
@@ -185,21 +189,21 @@ export default function ChatClient({ chatId, initialMessages = [], initialAgent 
     prevChatIdRef.current = chatId;
   }, [chatId, initialAgentOption]);
 
+  const queryClient = useQueryClient();
+  const updateChatAgentMutation = useUpdateChatAgentMutation();
+  const uploadFileMutation = useUploadFileMutation();
+
   const handleSetSelectedAgent = useCallback(
     (agentOrFn: React.SetStateAction<AgentOption | null>) => {
       setSelectedAgent((prev) => {
         const next = typeof agentOrFn === "function" ? agentOrFn(prev) : agentOrFn;
         if (chatId) {
-          fetch(`/api/chat/${chatId}/agent`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ agent: next ? next.tag : null }),
-          }).catch((err) => console.error("Failed to update chat agent:", err));
+          updateChatAgentMutation.mutate({ chatId, agent: next ? next.tag : null });
         }
         return next;
       });
     },
-    [chatId]
+    [chatId, updateChatAgentMutation]
   );
 
   const isAnyFileUploading = useMemo(
@@ -293,11 +297,17 @@ export default function ChatClient({ chatId, initialMessages = [], initialAgent 
     setIsStreaming(true);
 
     try {
-      const response = await fetch("/api/chat", {
+      const token = getAuthToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           chatId,
           message: text,
@@ -462,14 +472,8 @@ export default function ChatClient({ chatId, initialMessages = [], initialAgent 
         const formData = new FormData();
         formData.append("file", file);
 
-        fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        })
-          .then((res) => {
-            if (!res.ok) throw new Error("Upload failed");
-            return res.json();
-          })
+        uploadFileMutation
+          .mutateAsync(formData)
           .then((data) => {
             setSelectedDocs((prev) =>
               prev.map((d) =>
@@ -480,10 +484,7 @@ export default function ChatClient({ chatId, initialMessages = [], initialAgent 
             );
             toast.success(`Uploaded ${file.name}`);
           })
-          .catch((err) => {
-            console.error("File upload error:", err);
-            toast.error(`Failed to upload ${file.name}`);
-            // Remove failed doc from selection
+          .catch(() => {
             setSelectedDocs((prev) => prev.filter((d) => d.id !== docId));
           });
       });

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import { clientAPI } from "@/lib/client-api";
 import {
   IconMessage,
   IconPlus,
@@ -66,11 +67,8 @@ export function CommandMenu() {
   const fetchChats = useCallback(async (query: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/chats/search?q=${encodeURIComponent(query)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setChats(data.chats || []);
-      }
+      const res = await clientAPI.get(`/chat/search?q=${encodeURIComponent(query)}`);
+      setChats(res.data?.chats || []);
     } catch (e) {
       console.error("Failed to fetch chats for command menu:", e);
     } finally {

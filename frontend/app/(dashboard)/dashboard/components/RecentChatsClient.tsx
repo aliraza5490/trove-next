@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { renameChat as renameChatAction, deleteChat as deleteChatAction } from './actions';
+import { updateChatMutation, deleteChatMutation } from '../hooks';
 import { Pencil, Trash2, Check, X, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -33,6 +33,8 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
   const router = useRouter();
   const pathname = usePathname();
   const [chats, setChats] = useState<Chat[]>(initialChats);
+  const updateChat = updateChatMutation();
+  const deleteChat = deleteChatMutation();
 
   useEffect(() => {
     setChats(initialChats);
@@ -60,14 +62,13 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
       return;
     }
     try {
-      await renameChatAction(id, next);
+      await updateChat.mutateAsync({ chatId: id, newTitle: next });
       setChats((prev) => prev.map((c) => (c.id === id ? { ...c, title: next } : c)));
       setEditingId(null);
       setDraftTitle('');
-      toast.success('Chat title updated');
       router.refresh();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to rename chat');
+    } catch {
+      /* handled in hook */
     }
   };
 
@@ -75,15 +76,14 @@ export default function RecentChatsClient({ initialChats }: { initialChats: Chat
     if (!chatToDelete) return;
     setIsDeleting(true);
     try {
-      await deleteChatAction(chatToDelete.id);
+      await deleteChat.mutateAsync(chatToDelete.id);
       setChats((prev) => prev.filter((c) => c.id !== chatToDelete.id));
-      toast.success('Chat deleted');
       if (pathname === `/dashboard/${chatToDelete.id}`) {
         router.push('/dashboard');
       }
       router.refresh();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to delete chat');
+    } catch {
+      /* handled in hook */
     } finally {
       setIsDeleting(false);
       setChatToDelete(null);

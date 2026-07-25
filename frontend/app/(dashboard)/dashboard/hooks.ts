@@ -1,6 +1,5 @@
 import { clientAPI } from '@/lib/client-api';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 export const useChatListQuery = () => {
@@ -14,6 +13,7 @@ export const useChatListQuery = () => {
 };
 
 export const createChatMutation = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (message: string) => {
       const { data } = await clientAPI.post(
@@ -21,31 +21,35 @@ export const createChatMutation = () => {
       );
       return data;
     },
-    onError: (error) => {
-      toast.error(error.message);
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to create chat');
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-list'] });
       toast.success('Chat created');
     },
   });
 };
 
 export const deleteChatMutation = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (chatId: string) => {
-      const { data } = await clientAPI.delete(`/chat/${chatId}/delete`);
+      const { data } = await clientAPI.delete(`/chat/${chatId}`);
       return data;
     },
-    onError: (error) => {
-      toast.error(error.message);
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete chat');
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-list'] });
       toast.success('Chat deleted');
     },
   });
 };
 
 export const updateChatMutation = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
       chatId,
@@ -59,11 +63,49 @@ export const updateChatMutation = () => {
       });
       return data;
     },
-    onError: (error) => {
-      toast.error(error.message);
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update chat title');
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-list'] });
       toast.success('Chat updated');
+    },
+  });
+};
+
+export const useUpdateChatAgentMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      chatId,
+      agent,
+    }: {
+      chatId: string;
+      agent: string | null;
+    }) => {
+      const { data } = await clientAPI.patch(`/chat/${chatId}/agent`, {
+        agent,
+      });
+      return data;
+    },
+    onError: (error: any) => {
+      console.error('Failed to update chat agent:', error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-list'] });
+    },
+  });
+};
+
+export const useUploadFileMutation = () => {
+  return useMutation({
+    mutationFn: async (formData: FormData) => {
+      const { data } = await clientAPI.post('/chat/upload', formData);
+      return data;
+    },
+    onError: (error: any) => {
+      console.error('File upload error:', error);
+      toast.error('Failed to upload file');
     },
   });
 };
