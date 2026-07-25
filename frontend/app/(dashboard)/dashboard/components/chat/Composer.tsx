@@ -1,67 +1,64 @@
-'use client';
-import { SelectedDoc } from '../types';
-import React, { useMemo, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+"use client";
+
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Paperclip,
   Send,
-  Upload,
   Image as ImageIcon,
   FileText,
-  Wrench,
   X,
-  Loader2Icon,
+  Globe,
   Info,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   AgentDropdown,
   useAgentTrigger,
-  getActiveAgentFromInput,
   ActiveAgentBadge,
   AgentOption,
-} from './AgentDropdown';
+} from "./AgentDropdown";
+import { SelectedDoc } from "./types";
 
-
-
-function Composer(props: {
+export interface ComposerProps {
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   input: string;
   setInput: (v: string) => void;
   onSend: (textOverride?: string) => void;
-  disabled: boolean;
+  placeholder?: string;
+  isStreaming: boolean;
   webSearch: boolean;
   setWebSearch: (v: boolean) => void;
   onUploadClick: () => void;
   selectedDocs: SelectedDoc[];
   onRemoveDoc: (id: string) => void;
-  selectedAgent?: AgentOption | null;
-  setSelectedAgent?: React.Dispatch<React.SetStateAction<AgentOption | null>>;
-  dropdownPosition?: 'top' | 'bottom';
-}) {
+  isAnyFileUploading: boolean;
+  onPasteFiles: (files: File[]) => void;
+  selectedAgent: AgentOption | null;
+  setSelectedAgent: React.Dispatch<React.SetStateAction<AgentOption | null>>;
+  dropdownPosition?: "top" | "bottom";
+}
+
+export function Composer(props: ComposerProps) {
   const {
+    textareaRef,
     input,
     setInput,
     onSend,
-    disabled,
+    placeholder,
+    isStreaming,
     webSearch,
     setWebSearch,
     onUploadClick,
     selectedDocs,
     onRemoveDoc,
-    selectedAgent: propSelectedAgent,
-    setSelectedAgent: propSetSelectedAgent,
-    dropdownPosition = 'top',
+    isAnyFileUploading,
+    onPasteFiles,
+    selectedAgent,
+    setSelectedAgent,
+    dropdownPosition = "top",
   } = props;
-
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const {
     showDropdown,
@@ -69,22 +66,20 @@ function Composer(props: {
     triggerChar,
     selectedIndex,
     filteredOptions,
-    selectedAgent,
-    setSelectedAgent,
     checkTrigger,
     selectOption,
     handleKeyDown: processAgentKeyDown,
-  } = useAgentTrigger(input, setInput, textareaRef, propSelectedAgent, propSetSelectedAgent);
+  } = useAgentTrigger(input, setInput, textareaRef, selectedAgent, setSelectedAgent);
 
   const handleComposerSend = () => {
-    if (!input.trim() || disabled) return;
+    if (!input.trim() || isStreaming || isAnyFileUploading) return;
     const messageText = selectedAgent ? `@${selectedAgent.tag} ${input.trim()}` : input.trim();
     onSend(messageText);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const handled = processAgentKeyDown(e, handleComposerSend);
-    if (!handled && e.key === 'Enter' && !e.shiftKey) {
+    if (!handled && e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleComposerSend();
     }
@@ -96,6 +91,14 @@ function Composer(props: {
     checkTrigger(val, e.target.selectionStart);
   };
 
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(e.clipboardData.files);
+    if (files.length > 0) {
+      e.preventDefault();
+      onPasteFiles(files);
+    }
+  };
+
   const formatBytes = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     const kb = bytes / 1024;
@@ -105,22 +108,12 @@ function Composer(props: {
   };
 
   const iconFor = (mime: string) => {
-    if (mime.startsWith('image/')) return <ImageIcon className="size-3.5" />;
+    if (mime.startsWith("image/")) return <ImageIcon className="size-3.5" />;
     return <FileText className="size-3.5" />;
   };
 
-  const placeholder = useMemo(
-    () => (webSearch ? 'Ask anything or type @ or / for agents... (Web Search ON)' : 'Ask anything or type @ or / for agents...'),
-    [webSearch],
-  );
-
-  const handleWebsearchChange = (v: boolean) => {
-    setWebSearch(Boolean(v));
-    localStorage.setItem('webSearch', Boolean(v) ? 'true' : 'false');
-  };
-
   return (
-    <div className="relative bg-background/80 supports-[backdrop-filter]:backdrop-blur-md border shadow-lg rounded-xl p-2 sm:p-3">
+    <div className="relative bg-background/85 supports-[backdrop-filter]:backdrop-blur-md border border-border/70 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] rounded-xl p-2.5 sm:p-3.5 transition-shadow">
       <AgentDropdown
         visible={showDropdown}
         filterQuery={filterQuery}
@@ -138,16 +131,17 @@ function Composer(props: {
               key={d.id}
               className="group inline-flex items-center gap-2 rounded-full bg-accent/60 text-xs text-foreground px-2.5 py-1.5 border"
             >
-              <span className="text-muted-foreground">{iconFor(d.type)}</span>
-              <span
-                className="max-w-[14rem] truncate"
-                title={`${d.name} • ${formatBytes(d.size)}`}
-              >
+              <span className="text-muted-foreground flex items-center justify-center">
+                {d.isUploading ? (
+                  <span className="animate-spin inline-block size-3.5 border-2 border-primary border-t-transparent rounded-full" />
+                ) : (
+                  iconFor(d.type)
+                )}
+              </span>
+              <span className="max-w-[14rem] truncate" title={`${d.name} • ${formatBytes(d.size)}`}>
                 {d.name}
               </span>
-              <span className="hidden sm:inline text-muted-foreground min-w-fit">
-                · {formatBytes(d.size)}
-              </span>
+              <span className="hidden sm:inline text-muted-foreground min-w-fit">· {formatBytes(d.size)}</span>
               <button
                 type="button"
                 onClick={() => onRemoveDoc(d.id)}
@@ -170,88 +164,66 @@ function Composer(props: {
             />
           </div>
         )}
-        <div className="relative flex items-end gap-2">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={handleInputChange}
-            onKeyDown={onKeyDown}
-            placeholder={placeholder}
-            className="max-h-32 min-h-[38px] flex-1 resize-none bg-transparent dark:bg-transparent border-0 p-0 pt-1.5 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 outline-none"
-            aria-label="Chat input"
-          />
-
-          <Button
-            onClick={handleComposerSend}
-            disabled={!input.trim() || disabled}
-            className="shrink-0 rounded-lg"
-          >
-
-          {disabled ? (
-            <>
-              <Loader2Icon className="size-4 animate-spin" />
-              <span>Sending...</span>
-            </>
-          ) : (
-            <>
-              <Send className="size-4" />
-              <span>Send</span>
-            </>
-          )}
-        </Button>
+        <Textarea
+          ref={textareaRef}
+          autoFocus
+          value={input}
+          onChange={handleInputChange}
+          onKeyDown={onKeyDown}
+          onPaste={onPaste}
+          placeholder={placeholder || "Ask anything or type @ or / to select an agent..."}
+          className="max-h-32 min-h-[38px] w-full resize-none border-0 bg-transparent dark:bg-transparent p-0 pt-1.5 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 outline-none"
+          aria-label="Chat input"
+        />
       </div>
-    </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2 px-1">
+      <div className="mt-2 flex items-center justify-between px-1 gap-2">
         <div className="flex items-center gap-2">
           <button
             type="button"
             aria-label="Attach"
             onClick={onUploadClick}
-            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-md hover:bg-accent border bg-secondary flex items-center justify-center h-8 gap-1.5 px-3 has-[>svg]:px-2.5 text-xs"
+            disabled={isStreaming}
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-md hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
+            title="Attach document"
           >
-            Files
-            <Paperclip className="size-4" />
+            <Paperclip className="size-4.5" />
           </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="shrink-0">
-                Tools
-                <Wrench className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  onUploadClick();
-                }}
-              >
-                <Upload className="size-4" /> Upload Document
-              </DropdownMenuItem>
-              <DropdownMenuCheckboxItem
-                checked={webSearch}
-                onCheckedChange={handleWebsearchChange}
-              >
-                {webSearch ? (
-                  <>
-                    <span className="text-sm">Disable Web Search</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-sm">Enable Web Search</span>
-                  </>
-                )}
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+
+          {/* Web Search Mode Pill */}
+          <button
+            type="button"
+            onClick={() => setWebSearch(!webSearch)}
+            disabled={isStreaming}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border cursor-pointer select-none",
+              webSearch
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 shadow-2xs"
+                : "bg-muted/50 text-muted-foreground hover:text-foreground border-border/40 hover:bg-accent"
+            )}
+            title={webSearch ? "Disable Web Search" : "Enable Web Search"}
+          >
+            <Globe className={cn("size-3.5", webSearch && "text-emerald-500")} />
+            <span>{webSearch ? "Web Search ON" : "Web Search"}</span>
+          </button>
         </div>
 
-        <div className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/70 select-none">
-          <Info className="size-3.5 text-muted-foreground/70 shrink-0" />
-          <span>
-            <kbd className="px-1.5 py-0.5 font-mono text-[10px] font-semibold bg-muted/80 border border-border/60 rounded shadow-2xs">Enter</kbd> will send and <kbd className="px-1.5 py-0.5 font-mono text-[10px] font-semibold bg-muted/80 border border-border/60 rounded shadow-2xs">Shift + Enter</kbd> will add new line
-          </span>
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/70 select-none">
+            <Info className="size-3.5 text-muted-foreground/70 shrink-0" />
+            <span>
+              <kbd className="px-1.5 py-0.5 font-mono text-[10px] font-semibold bg-muted/80 border border-border/60 rounded shadow-2xs">Enter</kbd> will send and <kbd className="px-1.5 py-0.5 font-mono text-[10px] font-semibold bg-muted/80 border border-border/60 rounded shadow-2xs">Shift + Enter</kbd> will add new line
+            </span>
+          </div>
+          <Button
+            onClick={handleComposerSend}
+            disabled={!input.trim() || isStreaming || isAnyFileUploading}
+            size="icon"
+            className="shrink-0 rounded-lg"
+          >
+            <Send className="size-4" />
+            <span className="sr-only">Send</span>
+          </Button>
         </div>
       </div>
     </div>

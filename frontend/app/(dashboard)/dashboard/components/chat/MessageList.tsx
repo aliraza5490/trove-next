@@ -1,14 +1,101 @@
-'use client';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { cn, formatBytes } from '@/lib/utils';
-import { Message } from '../types';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
-import rehypeRaw from 'rehype-raw';
-import { AGENT_OPTIONS } from './AgentDropdown';
+"use client";
 
-function renderUserMessageContent(content: string) {
+import React from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Image as ImageIcon, FileText, Bot, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { AGENT_OPTIONS } from "./AgentDropdown";
+import { Message, Attachment } from "./types";
+
+export interface MessageListProps {
+  messages: Message[];
+  isStreaming?: boolean;
+}
+
+export function MessageList({ messages, isStreaming }: MessageListProps) {
+  return (
+    <div className="mx-auto w-full max-w-[800px]">
+      <ul className="space-y-6 pb-2">
+        {messages.map((m, idx) => {
+          const isLast = idx === messages.length - 1;
+          const isStreamingMessage = isLast && m.role === "assistant" && !!isStreaming;
+          return (
+            <li key={m.id}>
+              <ChatBubble
+                role={m.role}
+                content={m.content}
+                attachments={m.attachments}
+                status={m.status}
+                isStreamingMessage={isStreamingMessage}
+              />
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+export function AttachmentPill({ attachment, isUser }: { attachment: Attachment; isUser: boolean }) {
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    const mb = kb / 1024;
+    return `${mb.toFixed(1)} MB`;
+  };
+
+  const getFileIcon = (mime?: string | null, filename?: string) => {
+    const m = mime?.toLowerCase() || "";
+    const name = filename?.toLowerCase() || "";
+
+    if (m.startsWith("image/") || name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif")) {
+      return <ImageIcon className="size-4 shrink-0 text-sky-500" />;
+    }
+    if (m.includes("pdf") || name.endsWith(".pdf")) {
+      return <FileText className="size-4 shrink-0 text-rose-500" />;
+    }
+    if (m.includes("csv") || m.includes("spreadsheet") || name.endsWith(".csv") || name.endsWith(".xlsx") || name.endsWith(".xls")) {
+      return <FileText className="size-4 shrink-0 text-emerald-500" />;
+    }
+    if (m.includes("json") || name.endsWith(".json")) {
+      return <FileText className="size-4 shrink-0 text-amber-500" />;
+    }
+    return <FileText className="size-4 shrink-0 text-muted-foreground" />;
+  };
+
+  const baseClasses = cn(
+    "flex items-center gap-2 rounded-lg border p-2 text-xs transition-all duration-200 max-w-[200px] sm:max-w-[240px] font-sans",
+    isUser
+      ? "bg-black/15 border-white/20 text-primary-foreground hover:bg-black/25"
+      : "bg-background border-border text-foreground hover:bg-accent"
+  );
+
+  return (
+    <a
+      href={attachment.url}
+      download={attachment.name}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={baseClasses}
+      title={`Download ${attachment.name}`}
+    >
+      {getFileIcon(attachment.mimeType, attachment.name)}
+      <div className="overflow-hidden min-w-0 flex-1">
+        <p className="truncate font-medium hover:underline">{attachment.name}</p>
+        {attachment.size && (
+          <p className={cn("text-[10px]", isUser ? "text-primary-foreground/75" : "text-muted-foreground")}>
+            {formatBytes(attachment.size)}
+          </p>
+        )}
+      </div>
+    </a>
+  );
+}
+
+export function renderUserMessageContent(content: string) {
   const parts = content.split(/((?:`@[a-zA-Z0-9_-]+`|@[a-zA-Z0-9_-]+))/g);
 
   return (
@@ -35,299 +122,104 @@ function renderUserMessageContent(content: string) {
   );
 }
 
-export default function MessageList({ messages }: { messages: Message[] }) {
-  return (
-    <div className="mx-auto w-full overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-      <ul className="space-y-6 max-w-3xl mx-auto">
-        {messages.map((m) => (
-          <li key={m.id}>
-            <ChatBubble
-              role={m.role}
-              content={m.content}
-              attachments={m.attachments}
-            />
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function BlinkingCursor() {
-  return <span className="animate-pulse">|</span>;
-}
-
-// Helpers for attachment rendering
-function toPublicUrl(path: string) {
-  if (!path) return '#';
-  // return path.startsWith('http') ? path : `/${path.replace(/^\/+/, '')}`;
-  const pathname = path.startsWith('http')
-    ? new URL(path).pathname
-    : `/${path.replace(/^\/+/, '')}`;
-  return `${process.env.NEXT_PUBLIC_BACKEND_URL}${pathname}`;
-}
-
-// Added: helpers for file extension display
-function getFileExt(nameOrPath: string) {
-  const m = nameOrPath.toLowerCase().match(/\.([a-z0-9]+)(?:\?.*)?$/i);
-  return m ? m[1] : '';
-}
-
-function extBadgeClass(ext: string) {
-  switch (ext) {
-    case 'pdf':
-      return 'border-rose-300 text-rose-700 dark:text-rose-300';
-    case 'csv':
-    case 'xls':
-    case 'xlsx':
-      return 'border-emerald-300 text-emerald-700 dark:text-emerald-300';
-    case 'doc':
-    case 'docx':
-      return 'border-sky-300 text-sky-700 dark:text-sky-300';
-    case 'zip':
-    case 'tar':
-    case 'gz':
-      return 'border-amber-300 text-amber-700 dark:text-amber-300';
-    default:
-      return 'border-muted-foreground/30 text-muted-foreground';
-  }
-}
-
-function AttachmentList({
-  attachments,
-}: {
-  attachments: NonNullable<Message['attachments']>;
-}) {
-  if (!attachments?.length) return null;
-
-  return (
-    <div className="mt-3">
-      <ul className="divide-y rounded-md border bg-card">
-        {attachments.map((file: any) => {
-          const url = toPublicUrl(file.file_path || file.url || '');
-          const name = file.file_name || file.name || 'attachment';
-          const size = formatBytes(file.file_size);
-          const ext = getFileExt(name || url);
-          const isDisabled = !url || url === '#';
-
-          const itemInner = (
-            <div className="bg-background rounded-lg flex items-start gap-3 p-3">
-              <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-foreground font-semibold">
-                {(ext || name).slice(0, 2).toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <div className="truncate font-medium" title={name}>
-                    {name}
-                  </div>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide',
-                      extBadgeClass(ext),
-                    )}
-                  >
-                    {ext || 'file'}
-                  </span>
-                </div>
-                {size ? (
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {size}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          );
-
-          return (
-            <li key={file.id ?? `${name}-${url}`}>
-              {isDisabled ? (
-                <div className="opacity-60 cursor-not-allowed">{itemInner}</div>
-              ) : (
-                <a
-                  href={url}
-                  download
-                  className="block hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition"
-                  aria-label={`Download ${name}`}
-                >
-                  {itemInner}
-                </a>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-function ChatBubble({
+export function ChatBubble({
   role,
   content,
   attachments,
+  status,
+  isStreamingMessage,
 }: {
-  role: Message['role'];
+  role: Message["role"];
   content: string;
-  attachments: Message['attachments'];
+  attachments?: Attachment[];
+  status?: string;
+  isStreamingMessage?: boolean;
 }) {
-  const isUser = role === 'user';
-  const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
-
+  const isUser = role === "user";
   return (
-    <div
-      className={cn(
-        'flex w-full items-start gap-3',
-        isUser ? 'justify-end' : 'justify-start',
-      )}
-    >
+    <div className={cn("flex w-full items-start gap-3", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
-        <Avatar>
-          <AvatarFallback>AI</AvatarFallback>
+        <Avatar className="size-8 border border-emerald-500/20 shadow-2xs ring-1 ring-background shrink-0">
+          <AvatarFallback className="bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600 text-white font-medium flex items-center justify-center size-full">
+            <Bot className="size-4 text-white" />
+          </AvatarFallback>
         </Avatar>
       )}
       <div
         className={cn(
-          'max-w-[85%] rounded-2xl text-sm shadow-sm',
+          "max-w-[80%] sm:max-w-[78%] rounded-2xl px-4 py-3 text-sm flex flex-col gap-2 transition-all",
           isUser
-            ? 'bg-muted text-primary-foreground rounded-br-md  py-3  px-4'
-            : 'bg-none text-foreground rounded-bl-md',
+            ? "bg-primary text-primary-foreground rounded-br-md shadow-[0_2px_10px_rgba(99,102,241,0.18)] dark:shadow-[0_4px_14px_rgba(0,0,0,0.3)]"
+            : "bg-muted/65 dark:bg-zinc-900/80 border border-border/60 dark:border-white/[0.06] text-foreground rounded-bl-md shadow-[0_2px_10px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.25)]"
         )}
       >
-        {content ? (
-          <div suppressHydrationWarning className="break-words">
-            {isUser ? (
-              renderUserMessageContent(content)
-            ) : (
-              <Markdown
-                remarkPlugins={[remarkGfm, remarkBreaks]}
-                rehypePlugins={[rehypeRaw]}
-                skipHtml={false}
-              // linkTarget="_blank"
-              components={{
-                // Text & headings
-                p: (props) => (
-                  <p className="mb-3 leading-7 last:mb-0" {...props} />
-                ),
-                h1: (props) => (
-                  <h1 className="mt-0 mb-3 text-2xl font-semibold" {...props} />
-                ),
-                h2: (props) => (
-                  <h2 className="mt-0 mb-3 text-xl font-semibold" {...props} />
-                ),
-                h3: (props) => (
-                  <h3 className="mt-0 mb-2 text-lg font-semibold" {...props} />
-                ),
-                h4: (props) => (
-                  <h4
-                    className="mt-0 mb-2 text-base font-semibold"
-                    {...props}
-                  />
-                ),
-                h5: (props) => (
-                  <h5 className="mt-0 mb-2 text-sm font-semibold" {...props} />
-                ),
-                h6: (props) => (
-                  <h6
-                    className="mt-0 mb-2 text-sm font-semibold opacity-80"
-                    {...props}
-                  />
-                ),
+        {status && (
+          <div
+            className={cn(
+              "inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium border w-fit shadow-2xs transition-all duration-200",
+              isStreamingMessage
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 animate-pulse"
+                : "bg-accent/80 text-muted-foreground border-border/60"
+            )}
+          >
+            <Sparkles className="size-3.5 text-emerald-500 shrink-0" />
+            <span className="truncate max-w-[280px] sm:max-w-[360px]">{status}</span>
+          </div>
+        )}
 
-                // Lists
-                ul: (props) => (
-                  <ul className="my-3 ml-6 list-disc space-y-1" {...props} />
-                ),
-                ol: (props) => (
-                  <ol className="my-3 ml-6 list-decimal space-y-1" {...props} />
-                ),
-                li: (props) => (
-                  <li className="marker:text-muted-foreground" {...props} />
-                ),
-
-                // Links & media
-                a: (props) => (
-                  <a
-                    className="underline underline-offset-4 text-primary hover:opacity-80"
-                    rel="noreferrer noopener"
-                    {...props}
-                  />
-                ),
-                img: (props) => (
-                  // Allow images to scale down within bubbles
-                  <img className="my-2 max-h-96 w-auto rounded" {...props} />
-                ),
-
-                // Blockquote & hr
-                blockquote: (props) => (
-                  <blockquote
-                    className="my-3 border-l-2 border-muted-foreground/30 pl-4 italic text-muted-foreground"
-                    {...props}
-                  />
-                ),
-                hr: (props) => <hr className="my-4 border-muted" {...props} />,
-
-                // Tables
-                table: (props) => (
-                  <table
-                    className="w-full border-collapse text-left my-3 text-sm"
-                    {...props}
-                  />
-                ),
-                thead: (props) => <thead className="bg-muted/60" {...props} />,
-                tr: (props) => (
-                  <tr className="border-b last:border-b-0" {...props} />
-                ),
-                th: (props) => (
-                  <th className="border px-3 py-2 font-medium" {...props} />
-                ),
-                td: (props) => (
-                  <td className="border px-3 py-2 align-top" {...props} />
-                ),
-
-                // Code
-                pre: (props) => (
-                  <pre
-                    className="my-3 overflow-x-auto rounded bg-muted-foreground/10 p-3 text-xs leading-relaxed shadow-sm"
-                    {...props}
-                  />
-                ),
-                code: ({ inline, className, children, ...props }: any) =>
-                  inline ? (
-                    <code
-                      className={cn(
-                        'font-mono rounded bg-muted-foreground/10 px-1.5 py-0.5',
-                        className,
-                      )}
-                      {...props}
-                    >
-                      {children}
-                    </code>
-                  ) : (
-                    // For fenced code blocks, let <pre> handle the container styling.
-                    <code className={cn('font-mono', className)} {...props}>
-                      {children}
-                    </code>
-                  ),
-              }}
-            >
-              {content}
-            </Markdown>
+        {isUser ? (
+          renderUserMessageContent(content)
+        ) : content === "" ? (
+          <div className="flex items-center gap-1.5 py-1 px-0.5" aria-label="Thinking">
+            {!status && (
+              <>
+                <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce [animation-delay:-0.3s]" />
+                <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce [animation-delay:-0.15s]" />
+                <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce" />
+              </>
             )}
           </div>
-        ) : !hasAttachments ? (
-          <BlinkingCursor />
-        ) : null}
+        ) : (
+          <div
+            className="prose dark:prose-invert max-w-none text-sm leading-relaxed
+              [&_a]:text-primary-600 [&_a]:underline hover:[&_a]:text-primary-500
+              [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-2
+              [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-2
+              [&_p]:my-1.5 [&_p]:first:mt-0 [&_p]:last:mb-0
+              [&_code]:bg-accent/80 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono
+              [&_pre]:bg-black/90 [&_pre]:text-white [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:my-2 [&_pre]:overflow-x-auto
+              [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-white
+              [&_h1]:text-lg [&_h1]:font-bold [&_h1]:my-2
+              [&_h2]:text-base [&_h2]:font-bold [&_h2]:my-2
+              [&_h3]:text-sm [&_h3]:font-bold [&_h3]:my-1.5
+              [&_blockquote]:border-l-4 [&_blockquote]:border-primary/50 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:my-2
+              [&_table]:w-full [&_table]:border-collapse [&_table]:my-3
+              [&_th]:border [&_th]:border-border [&_th]:p-1.5 [&_th]:bg-accent [&_th]:font-semibold
+              [&_td]:border [&_td]:border-border [&_td]:p-1.5"
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {content}
+            </ReactMarkdown>
+          </div>
+        )}
 
-        {hasAttachments ? (
-          <AttachmentList
-            attachments={attachments as NonNullable<Message['attachments']>}
-          />
-        ) : null}
+        {attachments && attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-1">
+            {attachments.map((att) => (
+              <AttachmentPill key={att.id} attachment={att} isUser={isUser} />
+            ))}
+          </div>
+        )}
       </div>
       {isUser && (
-        <Avatar>
-          <AvatarFallback>U</AvatarFallback>
+        <Avatar className="size-8 border border-white/20 shadow-2xs ring-1 ring-background shrink-0">
+          <AvatarFallback className="bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white font-semibold text-xs flex items-center justify-center size-full">
+            U
+          </AvatarFallback>
         </Avatar>
       )}
     </div>
   );
 }
+
+export default MessageList;
