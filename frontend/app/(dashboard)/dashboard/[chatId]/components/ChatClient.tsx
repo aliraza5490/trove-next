@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getAuthToken } from "@/lib/auth";
-import { useUpdateChatAgentMutation, useUploadFileMutation } from "../hooks";
+import { useUpdateChatAgentMutation, useUploadFileMutation } from "@/app/(dashboard)/dashboard/hooks";
 import { AGENT_OPTIONS, AgentOption } from "./chat/AgentDropdown";
 import { Message, SelectedDoc } from "./chat/types";
 import HeroHeading from "./chat/HeroHeading";

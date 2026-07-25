@@ -1,6 +1,6 @@
 import React from 'react';
 import { redirect } from 'next/navigation';
-import ChatClient from '../components/ChatClient';
+import ChatClient from './components/ChatClient';
 import { serverAPI } from '@/lib/server-api';
 
 export default async function ChatPage({ params }: { params: Promise<{ chatId: string }> }) {

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { updateChatMutation, deleteChatMutation } from '../hooks';
+import { updateChatMutation, deleteChatMutation } from '../dashboard/hooks';
 import { Pencil, Trash2, Check, X, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';

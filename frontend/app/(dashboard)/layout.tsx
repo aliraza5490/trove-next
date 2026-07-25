@@ -1,5 +1,5 @@
-import NewConversation from '@/app/(dashboard)/dashboard/components/NewConversation';
-import RecentChats from '@/app/(dashboard)/dashboard/components/RecentChats';
+import NewConversation from '@/app/(dashboard)/components/NewConversation';
+import RecentChats from '@/app/(dashboard)/components/RecentChats';
 import {
   Sidebar,
   SidebarContent,
@@ -15,13 +15,13 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { NavUser } from '@/app/(dashboard)/dashboard/components/NavUser';
+import { NavUser } from '@/app/(dashboard)/components/NavUser';
 import { ThemeToggle } from '@/components/theme-toggle';
 import Logo from "@/components/logo";
 import { redirect } from "next/navigation";
 import { serverAPI } from '@/lib/server-api';
 
-import { TopNav } from '@/app/(dashboard)/dashboard/components/TopNav';
+import { TopNav } from '@/app/(dashboard)/components/TopNav';
 import { CommandMenu } from '@/components/command-menu';
 
 export default async function DashboardLayout({
