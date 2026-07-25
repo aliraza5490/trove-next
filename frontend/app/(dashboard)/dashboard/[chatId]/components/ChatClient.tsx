@@ -165,7 +165,7 @@ export default function ChatClient({ chatId, initialMessages = [], initialAgent 
         body: JSON.stringify({
           chatId,
           message: text,
-          webSearch,
+          webSearch: selectedAgent?.key === "scout" ? webSearch : false,
           attachments,
         }),
       });
@@ -272,7 +272,7 @@ export default function ChatClient({ chatId, initialMessages = [], initialAgent 
     } finally {
       setIsStreaming(false);
     }
-  }, [input, isStreaming, isAnyFileUploading, chatId, webSearch, selectedDocs, router]);
+  }, [input, isStreaming, isAnyFileUploading, chatId, webSearch, selectedAgent, selectedDocs, router]);
 
   const handleUploadClick = useCallback(() => {
     fileInputRef.current?.click();

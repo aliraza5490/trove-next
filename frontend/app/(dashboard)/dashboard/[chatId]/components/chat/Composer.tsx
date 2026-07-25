@@ -191,21 +191,23 @@ export function Composer(props: ComposerProps) {
           </button>
 
           {/* Web Search Mode Pill */}
-          <button
-            type="button"
-            onClick={() => setWebSearch(!webSearch)}
-            disabled={isStreaming}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border cursor-pointer select-none",
-              webSearch
-                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 shadow-2xs"
-                : "bg-muted/50 text-muted-foreground hover:text-foreground border-border/40 hover:bg-accent"
-            )}
-            title={webSearch ? "Disable Web Search" : "Enable Web Search"}
-          >
-            <Globe className={cn("size-3.5", webSearch && "text-emerald-500")} />
-            <span>{webSearch ? "Web Search ON" : "Web Search"}</span>
-          </button>
+          {selectedAgent?.key === "scout" && (
+            <button
+              type="button"
+              onClick={() => setWebSearch(!webSearch)}
+              disabled={isStreaming}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border cursor-pointer select-none",
+                webSearch
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 shadow-2xs"
+                  : "bg-muted/50 text-muted-foreground hover:text-foreground border-border/40 hover:bg-accent"
+              )}
+              title={webSearch ? "Disable Web Search" : "Enable Web Search"}
+            >
+              <Globe className={cn("size-3.5", webSearch && "text-emerald-500")} />
+              <span>{webSearch ? "Web Search ON" : "Web Search"}</span>
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2.5">
