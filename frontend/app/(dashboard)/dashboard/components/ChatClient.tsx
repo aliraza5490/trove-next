@@ -205,7 +205,7 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
     if (!input.trim() || isStreaming || isAnyFileUploading) return;
     const text = input.trim();
     setInput("");
-    
+
     const attachments = selectedDocs.map(d => ({
       name: d.name,
       content: d.content,
@@ -789,7 +789,7 @@ function Composer(props: {
 function MessageList({ messages }: { messages: Message[] }) {
   return (
     <div className="mx-auto w-full max-w-[800px]">
-      <ul className="space-y-6">
+      <ul className="space-y-6 pb-8">
         {messages.map((m) => (
           <li key={m.id}>
             <ChatBubble role={m.role} content={m.content} attachments={m.attachments} />
@@ -812,7 +812,7 @@ function AttachmentPill({ attachment, isUser }: { attachment: Attachment; isUser
   const getFileIcon = (mime?: string | null, filename?: string) => {
     const m = mime?.toLowerCase() || "";
     const name = filename?.toLowerCase() || "";
-    
+
     if (m.startsWith("image/") || name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif")) {
       return <ImageIcon className="size-4 shrink-0 text-sky-500" />;
     }
