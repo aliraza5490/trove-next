@@ -573,6 +573,7 @@ export default function ChatClient({ chatId, initialMessages = [], initialAgent 
                   onPasteFiles={uploadFiles}
                   selectedAgent={selectedAgent}
                   setSelectedAgent={handleSetSelectedAgent}
+                  dropdownPosition="bottom"
                 />
               </div>
 
@@ -712,6 +713,7 @@ function Composer(props: {
   onPasteFiles: (files: File[]) => void;
   selectedAgent: AgentOption | null;
   setSelectedAgent: React.Dispatch<React.SetStateAction<AgentOption | null>>;
+  dropdownPosition?: 'top' | 'bottom';
 }) {
   const {
     textareaRef,
@@ -729,6 +731,7 @@ function Composer(props: {
     onPasteFiles,
     selectedAgent,
     setSelectedAgent,
+    dropdownPosition = 'top',
   } = props;
 
   const {
@@ -792,6 +795,7 @@ function Composer(props: {
         selectedIndex={selectedIndex}
         onSelect={selectOption}
         filteredOptions={filteredOptions}
+        position={dropdownPosition}
       />
 
       {selectedDocs.length > 0 && (

@@ -44,6 +44,7 @@ function Composer(props: {
   onRemoveDoc: (id: string) => void;
   selectedAgent?: AgentOption | null;
   setSelectedAgent?: React.Dispatch<React.SetStateAction<AgentOption | null>>;
+  dropdownPosition?: 'top' | 'bottom';
 }) {
   const {
     input,
@@ -57,6 +58,7 @@ function Composer(props: {
     onRemoveDoc,
     selectedAgent: propSelectedAgent,
     setSelectedAgent: propSetSelectedAgent,
+    dropdownPosition = 'top',
   } = props;
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -126,6 +128,7 @@ function Composer(props: {
         selectedIndex={selectedIndex}
         onSelect={selectOption}
         filteredOptions={filteredOptions}
+        position={dropdownPosition}
       />
 
       {selectedDocs.length > 0 && (

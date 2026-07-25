@@ -257,6 +257,7 @@ interface AgentDropdownProps {
   selectedIndex: number;
   onSelect: (option: AgentOption) => void;
   filteredOptions: AgentOption[];
+  position?: 'top' | 'bottom';
 }
 
 export function AgentDropdown({
@@ -266,6 +267,7 @@ export function AgentDropdown({
   selectedIndex,
   onSelect,
   filteredOptions,
+  position = 'top',
 }: AgentDropdownProps) {
   const itemRefs = React.useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -283,9 +285,11 @@ export function AgentDropdown({
   return (
     <div
       className={cn(
-        'absolute bottom-full left-0 right-0 mb-2 z-50 overflow-hidden',
+        'absolute left-0 right-0 z-50 overflow-hidden',
+        position === 'bottom'
+          ? 'top-full mt-2 animate-in fade-in slide-in-from-top-2 duration-150'
+          : 'bottom-full mb-2 animate-in fade-in slide-in-from-bottom-2 duration-150',
         'rounded-xl border border-border/80 bg-background/95 backdrop-blur-xl shadow-2xl',
-        'animate-in fade-in slide-in-from-bottom-2 duration-150',
       )}
     >
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/50 bg-muted/30 text-[10px] font-medium text-muted-foreground">
