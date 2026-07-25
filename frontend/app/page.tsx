@@ -37,38 +37,38 @@ export default async function Home() {
         <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[38rem] bg-gradient-to-b from-primary/10 via-fuchsia-500/5 to-transparent blur-2xl" />
 
         {/* Hero Content */}
-        <div className="relative z-10 mx-auto max-w-7xl px-6 text-center">
-          <div className="max-w-3xl mx-auto flex flex-col items-center">
-            <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground bg-secondary/50 backdrop-blur">
-              <Sparkles className="size-3.5 text-primary" />
-              Meet your personal AI assistant
-            </div>
-            <h1 className="relative z-10 mx-auto mt-6 max-w-4xl text-center text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-              Your personal <br />
-              <span className="bg-gradient-to-r from-primary via-fuchsia-600 to-indigo-600 bg-clip-text text-transparent">
-                AI assistant
-              </span>
-            </h1>
-            <p className="relative z-10 mx-auto mt-4 max-w-xl text-center text-muted-foreground text-base sm:text-lg">
-              Upload PDFs, notes, and articles. Ask questions and get instant, accurate answers with direct source citations from your personal knowledge base.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link href="/signup">
-                <Button size="lg" className="shadow-3xl">
-                  Start for free
-                  <Rocket className="size-4" />
-                </Button>
-              </Link>
-              <Link href="/login">
-                <Button size="lg" variant="outline">
-                  Sign in
-                  <LogIn className="size-4" />
-                </Button>
-              </Link>
-            </div>
+        <div className="relative z-10 max-w-3xl mx-auto flex flex-col items-center px-6 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground bg-secondary/50 backdrop-blur">
+            <Sparkles className="size-3.5 text-primary" />
+            Meet your personal AI assistant
           </div>
+          <h1 className="relative z-10 mx-auto mt-6 max-w-4xl text-center text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
+            Your personal <br />
+            <span className="bg-gradient-to-r from-primary via-fuchsia-600 to-indigo-600 bg-clip-text text-transparent">
+              AI assistant
+            </span>
+          </h1>
+          <p className="relative z-10 mx-auto mt-4 max-w-xl text-center text-muted-foreground text-base sm:text-lg">
+            Upload PDFs, notes, and articles. Ask questions and get instant, accurate answers with direct source citations from your personal knowledge base.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/signup">
+              <Button size="lg" className="shadow-3xl">
+                Start for free
+                <Rocket className="size-4" />
+              </Button>
+            </Link>
+            <Link href="/login">
+              <Button size="lg" variant="outline">
+                Sign in
+                <LogIn className="size-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
 
-          {/* Product preview image */}
+        {/* Product preview image */}
+        <div className="relative z-10 mx-auto max-w-7xl px-6 text-center">
           <div className="mt-12 relative mx-auto max-w-5xl rounded-xl border bg-card/60 p-4 backdrop-blur transition-all duration-300 hover:shadow-primary/5 hover:scale-[1.01]">
             <Image
               src="/chat.png"
