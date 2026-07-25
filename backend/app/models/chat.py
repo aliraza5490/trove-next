@@ -8,6 +8,8 @@ from sqlmodel import Column, DateTime, SQLModel, Field, Relationship, func
 
 class ChatBase(SQLModel):
     title: Optional[str] = Field(default=None)
+    agent: Optional[str] = Field(default=None)
+
 
 
 

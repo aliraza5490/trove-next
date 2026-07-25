@@ -200,7 +200,7 @@ class ChatService:
         async def generate():
             full_response = ""
             try:
-                async for chunk in TroveAgent.stream_response(
+                async for chunk, resolved_agent in TroveAgent.stream_response(
                     message=message,
                     history_messages=[
                         {
@@ -209,17 +209,26 @@ class ChatService:
                         }
                         for m in messages[:-1] # history except current prompt
                     ],
+                    current_chat_agent=chat.agent,
                     web_search=web_search,
                     context_text=context,
                     upload_context=upload_context,
                     attachments_media=attachments_media,
+                    chat_id=created_chat_id,
                 ):
-                    full_response += chunk
-                    event = {
-                        "content": chunk,
-                        "type": "message"
-                    }
-                    yield f"data: {json.dumps(event)}\n\n"
+                    if resolved_agent != chat.agent:
+                        chat.agent = resolved_agent
+                        session.add(chat)
+                        await session.commit()
+
+                    if chunk.startswith("data: "):
+                        try:
+                            data_json = json.loads(chunk.replace("data: ", "").strip())
+                            if data_json.get("type") == "message" and data_json.get("content"):
+                                full_response += data_json["content"]
+                        except Exception:
+                            pass
+                    yield chunk
             except Exception as err:
                 err_msg = f"\n\n**Error:** Unable to generate response ({err}). Please verify API credentials in `backend/.env`."
                 full_response += err_msg
@@ -253,6 +262,7 @@ class ChatService:
                 "Connection": "keep-alive"
             }
         )
+
 
     @classmethod
     async def search_chats(cls, q: str, user: TokenData, session: AsyncSession):
@@ -417,3 +427,21 @@ class ChatService:
         await session.delete(chat)
         await session.commit()
         return {"success": True}
+
+    @classmethod
+    async def update_chat_agent(cls, chat_id: str, agent: Optional[str], user: TokenData, session: AsyncSession):
+        try:
+            chat_uuid = UUID(chat_id)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat_id format")
+
+        chat_result = await session.exec(select(Chat).where(Chat.id == chat_uuid, Chat.user_id == user.id))
+        chat = chat_result.first()
+        if not chat:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+
+        chat.agent = agent
+        session.add(chat)
+        await session.commit()
+        return chat
+

@@ -15,4 +15,3 @@ def get_llm_model(temperature: float = 0.7, model_name: str = "gemini-2.5-flash"
         temperature=temperature,
         google_api_key=google_api_key,
     )
-

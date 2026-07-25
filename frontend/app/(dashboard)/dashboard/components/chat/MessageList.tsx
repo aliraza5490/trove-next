@@ -6,6 +6,34 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
+import { AGENT_OPTIONS } from './AgentDropdown';
+
+function renderUserMessageContent(content: string) {
+  const parts = content.split(/((?:`@[a-zA-Z0-9_-]+`|@[a-zA-Z0-9_-]+))/g);
+
+  return (
+    <div className="whitespace-pre-wrap break-words leading-relaxed">
+      {parts.map((part, index) => {
+        const cleanTag = part.replace(/`/g, '');
+        if (cleanTag.startsWith('@') && cleanTag.length > 1) {
+          const tagName = cleanTag.slice(1).toLowerCase();
+          const isKnownAgent = AGENT_OPTIONS.some((a) => a.tag.toLowerCase() === tagName);
+          if (isKnownAgent || ['draft', 'scout', 'brief', 'plan', 'recall', 'read'].includes(tagName)) {
+            return (
+              <code
+                key={index}
+                className="inline-flex items-center font-mono text-xs px-2 py-0.5 rounded bg-black/25 dark:bg-white/20 border border-white/25 font-semibold my-0.5 mr-1 select-none shadow-2xs"
+              >
+                {cleanTag}
+              </code>
+            );
+          }
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </div>
+  );
+}
 
 export default function MessageList({ messages }: { messages: Message[] }) {
   return (
@@ -166,10 +194,13 @@ function ChatBubble({
       >
         {content ? (
           <div suppressHydrationWarning className="break-words">
-            <Markdown
-              remarkPlugins={[remarkGfm, remarkBreaks]}
-              rehypePlugins={[rehypeRaw]}
-              skipHtml={false}
+            {isUser ? (
+              renderUserMessageContent(content)
+            ) : (
+              <Markdown
+                remarkPlugins={[remarkGfm, remarkBreaks]}
+                rehypePlugins={[rehypeRaw]}
+                skipHtml={false}
               // linkTarget="_blank"
               components={{
                 // Text & headings
@@ -280,6 +311,7 @@ function ChatBubble({
             >
               {content}
             </Markdown>
+            )}
           </div>
         ) : !hasAttachments ? (
           <BlinkingCursor />

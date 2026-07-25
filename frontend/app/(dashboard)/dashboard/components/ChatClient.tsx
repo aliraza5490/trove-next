@@ -20,9 +20,20 @@ import {
   Lightbulb,
   Compass,
   ArrowUpRight,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  AgentDropdown,
+  useAgentTrigger,
+  getActiveAgentFromInput,
+  ActiveAgentBadge,
+  AgentOption,
+  AGENT_OPTIONS,
+} from "./chat/AgentDropdown";
+
+
 
 type Attachment = {
   id: string;
@@ -38,6 +49,7 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   attachments?: Attachment[];
+  status?: string;
 };
 
 type SelectedDoc = {
@@ -147,15 +159,48 @@ const MOCK_CHAT_HISTORY: Record<string, Message[]> = {
 interface ChatClientProps {
   chatId?: string;
   initialMessages?: Message[];
+  initialAgent?: string | null;
 }
 
-export default function ChatClient({ chatId, initialMessages = [] }: ChatClientProps) {
+export default function ChatClient({ chatId, initialMessages = [], initialAgent = null }: ChatClientProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [webSearch, setWebSearch] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedDocs, setSelectedDocs] = useState<SelectedDoc[]>([]);
+
+  const initialAgentOption = useMemo(() => {
+    if (!initialAgent) return null;
+    return AGENT_OPTIONS.find((opt) => opt.tag.toLowerCase() === initialAgent.toLowerCase()) || null;
+  }, [initialAgent]);
+
+  const [selectedAgent, setSelectedAgent] = useState<AgentOption | null>(initialAgentOption);
+
+  const prevChatIdRef = useRef(chatId);
+  useEffect(() => {
+    if (prevChatIdRef.current && prevChatIdRef.current !== chatId) {
+      setSelectedAgent(initialAgentOption);
+    }
+    prevChatIdRef.current = chatId;
+  }, [chatId, initialAgentOption]);
+
+  const handleSetSelectedAgent = useCallback(
+    (agentOrFn: React.SetStateAction<AgentOption | null>) => {
+      setSelectedAgent((prev) => {
+        const next = typeof agentOrFn === "function" ? agentOrFn(prev) : agentOrFn;
+        if (chatId) {
+          fetch(`/api/chat/${chatId}/agent`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ agent: next ? next.tag : null }),
+          }).catch((err) => console.error("Failed to update chat agent:", err));
+        }
+        return next;
+      });
+    },
+    [chatId]
+  );
 
   const isAnyFileUploading = useMemo(
     () => selectedDocs.some((d) => d.isUploading),
@@ -185,6 +230,16 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
 
   // Auto focus input on mount when on new chat page
   useEffect(() => {
@@ -197,13 +252,14 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
   }, [inConversation, textareaRef]);
 
   useEffect(() => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, isStreaming]);
+    scrollToBottom();
+  }, [messages, isStreaming, scrollToBottom]);
 
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || isStreaming || isAnyFileUploading) return;
-    const text = input.trim();
+
+  const handleSend = useCallback(async (textOverride?: string) => {
+    const rawText = textOverride ?? input;
+    if (!rawText.trim() || isStreaming || isAnyFileUploading) return;
+    const text = rawText.trim();
     setInput("");
 
     const attachments = selectedDocs.map(d => ({
@@ -232,7 +288,7 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
     setMessages((prev) => [...prev, userMsg]);
 
     const assistantId = crypto.randomUUID();
-    setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
+    setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", status: "" }]);
 
     setIsStreaming(true);
 
@@ -265,6 +321,7 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
 
       let done = false;
       let assistantText = "";
+      let currentStatus = "";
       let buffer = "";
       let streamCreatedChatId: string | null = null;
 
@@ -285,7 +342,9 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
               const dataStr = trimmed.slice(6).trim();
               try {
                 const parsed = JSON.parse(dataStr);
-                if (parsed.type === "message" && parsed.content) {
+                if (parsed.type === "status" && parsed.content) {
+                  currentStatus = parsed.content;
+                } else if (parsed.type === "message" && parsed.content) {
                   assistantText += parsed.content;
                 } else if (parsed.type === "end" && parsed.content) {
                   streamCreatedChatId = parsed.content;
@@ -301,8 +360,10 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
           }
 
           setMessages((prev) =>
-            prev.map((m) => (m.id === assistantId ? { ...m, content: assistantText } : m))
+            prev.map((m) => (m.id === assistantId ? { ...m, content: assistantText, status: currentStatus } : m))
           );
+          scrollToBottom();
+
         }
       }
 
@@ -313,7 +374,9 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
           const dataStr = trimmed.slice(6).trim();
           try {
             const parsed = JSON.parse(dataStr);
-            if (parsed.type === "message" && parsed.content) {
+            if (parsed.type === "status" && parsed.content) {
+              currentStatus = parsed.content;
+            } else if (parsed.type === "message" && parsed.content) {
               assistantText += parsed.content;
             } else if (parsed.type === "end" && parsed.content) {
               streamCreatedChatId = parsed.content;
@@ -325,7 +388,7 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
           assistantText += trimmed;
         }
         setMessages((prev) =>
-          prev.map((m) => (m.id === assistantId ? { ...m, content: assistantText } : m))
+          prev.map((m) => (m.id === assistantId ? { ...m, content: assistantText, status: currentStatus } : m))
         );
       }
 
@@ -508,6 +571,8 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
                   onRemoveDoc={removeSelectedDoc}
                   isAnyFileUploading={isAnyFileUploading}
                   onPasteFiles={uploadFiles}
+                  selectedAgent={selectedAgent}
+                  setSelectedAgent={handleSetSelectedAgent}
                 />
               </div>
 
@@ -568,10 +633,12 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
           <div className="px-2 sm:px-4">
             <div
               ref={scrollRef}
-              className={cn("h-[calc(100dvh-15.6rem)] overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pr-1 sm:pr-2", selectedDocs.length > 0 && "h-[calc(100dvh-18.6rem)]")}
+              className={cn("h-[calc(100dvh-15.6rem)] overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pr-1 sm:pr-2 pb-4", selectedDocs.length > 0 && "h-[calc(100dvh-18.6rem)]")}
             >
-              <MessageList messages={messages} />
+              <MessageList messages={messages} isStreaming={isStreaming} />
+              <div ref={messagesEndRef} className="h-2 w-full shrink-0" />
             </div>
+
           </div>
         )}
       </div>
@@ -593,6 +660,8 @@ export default function ChatClient({ chatId, initialMessages = [] }: ChatClientP
               onRemoveDoc={removeSelectedDoc}
               isAnyFileUploading={isAnyFileUploading}
               onPasteFiles={uploadFiles}
+              selectedAgent={selectedAgent}
+              setSelectedAgent={handleSetSelectedAgent}
             />
           </div>
         </div>
@@ -631,7 +700,7 @@ function Composer(props: {
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   input: string;
   setInput: (v: string) => void;
-  onSend: () => void;
+  onSend: (textOverride?: string) => void;
   placeholder: string;
   isStreaming: boolean;
   webSearch: boolean;
@@ -641,6 +710,8 @@ function Composer(props: {
   onRemoveDoc: (id: string) => void;
   isAnyFileUploading: boolean;
   onPasteFiles: (files: File[]) => void;
+  selectedAgent: AgentOption | null;
+  setSelectedAgent: React.Dispatch<React.SetStateAction<AgentOption | null>>;
 }) {
   const {
     textareaRef,
@@ -656,13 +727,39 @@ function Composer(props: {
     onRemoveDoc,
     isAnyFileUploading,
     onPasteFiles,
+    selectedAgent,
+    setSelectedAgent,
   } = props;
 
+  const {
+    showDropdown,
+    filterQuery,
+    triggerChar,
+    selectedIndex,
+    filteredOptions,
+    checkTrigger,
+    selectOption,
+    handleKeyDown: processAgentKeyDown,
+  } = useAgentTrigger(input, setInput, textareaRef, selectedAgent, setSelectedAgent);
+
+  const handleComposerSend = () => {
+    if (!input.trim() || isStreaming || isAnyFileUploading) return;
+    const messageText = selectedAgent ? `@${selectedAgent.tag} ${input.trim()}` : input.trim();
+    onSend(messageText);
+  };
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    const handled = processAgentKeyDown(e, handleComposerSend);
+    if (!handled && e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      onSend();
+      handleComposerSend();
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setInput(val);
+    checkTrigger(val, e.target.selectionStart);
   };
 
   const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -687,7 +784,16 @@ function Composer(props: {
   };
 
   return (
-    <div className="bg-background/85 supports-[backdrop-filter]:backdrop-blur-md border border-border/70 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] rounded-xl p-2.5 sm:p-3.5 transition-shadow">
+    <div className="relative bg-background/85 supports-[backdrop-filter]:backdrop-blur-md border border-border/70 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] rounded-xl p-2.5 sm:p-3.5 transition-shadow">
+      <AgentDropdown
+        visible={showDropdown}
+        filterQuery={filterQuery}
+        triggerChar={triggerChar}
+        selectedIndex={selectedIndex}
+        onSelect={selectOption}
+        filteredOptions={filteredOptions}
+      />
+
       {selectedDocs.length > 0 && (
         <div className="flex overflow-x-auto items-center gap-2 px-1 pb-2 font-sans">
           {selectedDocs.map((d) => (
@@ -719,19 +825,29 @@ function Composer(props: {
         </div>
       )}
 
-      <Textarea
-        ref={textareaRef}
-        autoFocus
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={onKeyDown}
-        onPaste={onPaste}
-        placeholder={placeholder}
-        className="max-h-32 min-h-14 w-full resize-none border-0 bg-transparent px-2 py-1.5 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 md:text-sm"
-        aria-label="Chat input"
-      />
+      <div className="relative flex flex-col w-full rounded-lg bg-background/50 border border-border/50 p-3 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+        {selectedAgent && (
+          <div className="flex items-center gap-2 pb-2.5 px-0.5">
+            <ActiveAgentBadge
+              agent={selectedAgent}
+              onRemove={() => setSelectedAgent(null)}
+            />
+          </div>
+        )}
+        <Textarea
+          ref={textareaRef}
+          autoFocus
+          value={input}
+          onChange={handleInputChange}
+          onKeyDown={onKeyDown}
+          onPaste={onPaste}
+          placeholder={placeholder || "Ask anything or type @ or / to select an agent..."}
+          className="max-h-32 min-h-[38px] w-full resize-none border-0 bg-transparent dark:bg-transparent p-0 pt-1.5 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-0 outline-none"
+          aria-label="Chat input"
+        />
+      </div>
 
-      <div className="mt-2 flex items-center justify-between px-1">
+      <div className="mt-2 flex items-center justify-between px-1 gap-2">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -762,39 +878,47 @@ function Composer(props: {
           </button>
         </div>
 
-        <Button
-          onClick={onSend}
-          disabled={!input.trim() || isStreaming || isAnyFileUploading}
-          size="icon"
-          className="shrink-0 rounded-lg"
-        >
-          <Send className="size-4" />
-          <span className="sr-only">Send</span>
-        </Button>
-      </div>
-
-      {webSearch && (
-        <div className="mt-2.5 pt-2 border-t border-border/40 flex items-center justify-between text-[11px] text-emerald-600 dark:text-emerald-400 font-medium px-1 animate-in fade-in duration-200">
-          <span className="inline-flex items-center gap-1.5">
-            <Globe className="size-3 text-emerald-500" />
-            🌐 Web Search Enabled
-          </span>
-          <span className="text-muted-foreground font-normal">Press Enter to send</span>
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/70 select-none">
+            <Info className="size-3.5 text-muted-foreground/70 shrink-0" />
+            <span>
+              <kbd className="px-1.5 py-0.5 font-mono text-[10px] font-semibold bg-muted/80 border border-border/60 rounded shadow-2xs">Enter</kbd> will send and <kbd className="px-1.5 py-0.5 font-mono text-[10px] font-semibold bg-muted/80 border border-border/60 rounded shadow-2xs">Shift + Enter</kbd> will add new line
+            </span>
+          </div>
+          <Button
+            onClick={handleComposerSend}
+            disabled={!input.trim() || isStreaming || isAnyFileUploading}
+            size="icon"
+            className="shrink-0 rounded-lg"
+          >
+            <Send className="size-4" />
+            <span className="sr-only">Send</span>
+          </Button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-function MessageList({ messages }: { messages: Message[] }) {
+function MessageList({ messages, isStreaming }: { messages: Message[]; isStreaming?: boolean }) {
   return (
     <div className="mx-auto w-full max-w-[800px]">
-      <ul className="space-y-6 pb-8">
-        {messages.map((m) => (
-          <li key={m.id}>
-            <ChatBubble role={m.role} content={m.content} attachments={m.attachments} />
-          </li>
-        ))}
+      <ul className="space-y-6 pb-2">
+        {messages.map((m, idx) => {
+          const isLast = idx === messages.length - 1;
+          const isStreamingMessage = isLast && m.role === "assistant" && !!isStreaming;
+          return (
+            <li key={m.id}>
+              <ChatBubble
+                role={m.role}
+                content={m.content}
+                attachments={m.attachments}
+                status={m.status}
+                isStreamingMessage={isStreamingMessage}
+              />
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -857,7 +981,46 @@ function AttachmentPill({ attachment, isUser }: { attachment: Attachment; isUser
   );
 }
 
-function ChatBubble({ role, content, attachments }: { role: Message["role"]; content: string; attachments?: Attachment[] }) {
+function renderUserMessageContent(content: string) {
+  const parts = content.split(/((?:`@[a-zA-Z0-9_-]+`|@[a-zA-Z0-9_-]+))/g);
+
+  return (
+    <div className="whitespace-pre-wrap break-words leading-relaxed">
+      {parts.map((part, index) => {
+        const cleanTag = part.replace(/`/g, '');
+        if (cleanTag.startsWith('@') && cleanTag.length > 1) {
+          const tagName = cleanTag.slice(1).toLowerCase();
+          const isKnownAgent = AGENT_OPTIONS.some((a) => a.tag.toLowerCase() === tagName);
+          if (isKnownAgent || ['draft', 'scout', 'brief', 'plan', 'recall', 'read'].includes(tagName)) {
+            return (
+              <code
+                key={index}
+                className="inline-flex items-center font-mono text-xs px-2 py-0.5 rounded bg-black/25 dark:bg-white/20 border border-white/25 font-semibold my-0.5 mr-1 select-none shadow-2xs"
+              >
+                {cleanTag}
+              </code>
+            );
+          }
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </div>
+  );
+}
+
+function ChatBubble({
+  role,
+  content,
+  attachments,
+  status,
+  isStreamingMessage,
+}: {
+  role: Message["role"];
+  content: string;
+  attachments?: Attachment[];
+  status?: string;
+  isStreamingMessage?: boolean;
+}) {
   const isUser = role === "user";
   return (
     <div className={cn("flex w-full items-start gap-3", isUser ? "justify-end" : "justify-start")}>
@@ -876,16 +1039,35 @@ function ChatBubble({ role, content, attachments }: { role: Message["role"]; con
             : "bg-muted/65 dark:bg-zinc-900/80 border border-border/60 dark:border-white/[0.06] text-foreground rounded-bl-md shadow-[0_2px_10px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.25)]"
         )}
       >
+        {status && (
+          <div
+            className={cn(
+              "inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium border w-fit shadow-2xs transition-all duration-200",
+              isStreamingMessage
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 animate-pulse"
+                : "bg-accent/80 text-muted-foreground border-border/60"
+            )}
+          >
+            <Sparkles className="size-3.5 text-emerald-500 shrink-0" />
+            <span className="truncate max-w-[280px] sm:max-w-[360px]">{status}</span>
+          </div>
+        )}
+
         {isUser ? (
-          <div className="whitespace-pre-wrap">{content}</div>
+          renderUserMessageContent(content)
         ) : content === "" ? (
-          <div className="flex items-center gap-1.5 py-1.5 px-0.5" aria-label="Thinking">
-            <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce [animation-delay:-0.3s]" />
-            <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce [animation-delay:-0.15s]" />
-            <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce" />
+          <div className="flex items-center gap-1.5 py-1 px-0.5" aria-label="Thinking">
+            {!status && (
+              <>
+                <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce [animation-delay:-0.3s]" />
+                <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce [animation-delay:-0.15s]" />
+                <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce" />
+              </>
+            )}
           </div>
         ) : (
-          <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed
+          <div
+            className="prose dark:prose-invert max-w-none text-sm leading-relaxed
               [&_a]:text-primary-600 [&_a]:underline hover:[&_a]:text-primary-500
               [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-2
               [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-2

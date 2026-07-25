@@ -1,5 +1,5 @@
 from .agent import TroveAgent
-from .provider import get_llm_model
-from .tools import get_tools
+from .core.provider import get_llm_model
+from .supervisor import resolve_active_agent
 
-__all__ = ["TroveAgent", "get_llm_model", "get_tools"]
+__all__ = ["TroveAgent", "get_llm_model", "resolve_active_agent"]

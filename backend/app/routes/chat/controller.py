@@ -117,3 +117,14 @@ async def delete_chat(
     user: TokenData = Depends(get_user_from_token)
 ):
     return await ChatService.delete_chat(chat_id=chat_id, user=user, session=session)
+
+
+@chat_router.patch("/{chat_id}/agent", description="Update active agent for chat", summary="Update Chat Agent")
+async def update_chat_agent(
+    chat_id: str,
+    agent: Optional[str] = Body(default=None, embed=True),
+    session=Depends(get_session),
+    user: TokenData = Depends(get_user_from_token)
+):
+    return await ChatService.update_chat_agent(chat_id=chat_id, agent=agent, user=user, session=session)
+

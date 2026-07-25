@@ -1,12 +1,16 @@
 import json
-from typing import AsyncGenerator, List, Dict, Any, Optional
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, trim_messages
-from langchain_core.messages.utils import count_tokens_approximately
-from langchain_core.prompts.chat import ChatPromptTemplate, MessagesPlaceholder
-from langgraph.prebuilt import create_react_agent
+from typing import AsyncGenerator, List, Dict, Any, Optional, Tuple
 
-from .provider import get_llm_model
-from .tools import get_tools
+from app.agent.core.provider import get_llm_model
+from app.agent.supervisor import resolve_active_agent, run_default_agent
+from app.agent.agents import (
+    run_scout_agent,
+    run_draft_agent,
+    run_brief_agent,
+    run_plan_agent,
+    run_recall_agent,
+    run_read_agent,
+)
 
 
 class TroveAgent:
@@ -31,75 +35,84 @@ class TroveAgent:
         cls,
         message: str,
         history_messages: List[Dict[str, Any]],
+        current_chat_agent: Optional[str] = None,
         web_search: bool = False,
         context_text: str = "",
         upload_context: str = "",
         attachments_media: Optional[List[Dict[str, Any]]] = None,
-    ) -> AsyncGenerator[str, None]:
-        llm = get_llm_model()
-        tools = get_tools(web_search=web_search)
-        agent = create_react_agent(llm, tools=tools)
+        chat_id: Optional[str] = None,
+    ) -> AsyncGenerator[Tuple[str, Optional[str]], None]:
+        """
+        Yields (sse_chunk, resolved_db_agent) tuples.
+        """
+        selected_agent, new_db_agent, status_msg = resolve_active_agent(message, current_chat_agent)
 
-        ROLE_MAP = {
-            "user": HumanMessage,
-            "assistant": AIMessage,
-            "system": SystemMessage,
-        }
+        if status_msg:
+            status_event = {
+                "type": "status",
+                "content": status_msg,
+                "agent": selected_agent
+            }
+            yield (f"data: {json.dumps(status_event)}\n\n", new_db_agent)
 
-        lc_messages = []
-        for msg in history_messages:
-            role = msg.get("role", "user").lower()
-            content = msg.get("message") or msg.get("content") or ""
-            msg_class = ROLE_MAP.get(role, HumanMessage)
-            lc_messages.append(msg_class(content=content))
+        if selected_agent == "scout":
+            agent_stream = run_scout_agent(
+                message=message,
+                history_messages=history_messages,
+                web_search=web_search or True,
+                context_text=context_text,
+                upload_context=upload_context,
+                attachments_media=attachments_media,
+            )
+        elif selected_agent == "draft":
+            agent_stream = run_draft_agent(
+                message=message,
+                history_messages=history_messages,
+                context_text=context_text,
+                upload_context=upload_context,
+                attachments_media=attachments_media,
+            )
+        elif selected_agent == "brief":
+            agent_stream = run_brief_agent(
+                message=message,
+                history_messages=history_messages,
+                context_text=context_text,
+                upload_context=upload_context,
+                attachments_media=attachments_media,
+            )
+        elif selected_agent == "plan":
+            agent_stream = run_plan_agent(
+                message=message,
+                history_messages=history_messages,
+                context_text=context_text,
+                upload_context=upload_context,
+                attachments_media=attachments_media,
+            )
+        elif selected_agent == "recall":
+            agent_stream = run_recall_agent(
+                message=message,
+                history_messages=history_messages,
+                context_text=context_text,
+                upload_context=upload_context,
+                attachments_media=attachments_media,
+            )
+        elif selected_agent == "read":
+            agent_stream = run_read_agent(
+                message=message,
+                history_messages=history_messages,
+                chat_id=chat_id,
+                context_text=context_text,
+                upload_context=upload_context,
+                attachments_media=attachments_media,
+            )
+        else:
+            agent_stream = run_default_agent(
+                message=message,
+                history_messages=history_messages,
+                context_text=context_text,
+                upload_context=upload_context,
+                attachments_media=attachments_media,
+            )
 
-        # Build multimodal prompt if google_uri items exist
-        user_content_parts = [{"type": "text", "text": message}]
-        if attachments_media:
-            for item in attachments_media:
-                g_uri = item.get("google_uri") or item.get("googleUri")
-                m_type = item.get("mime_type") or item.get("mimeType") or "application/octet-stream"
-                if g_uri:
-                    user_content_parts.append({
-                        "type": "media",
-                        "file_uri": g_uri,
-                        "mime_type": m_type,
-                    })
-
-        latest_human = (
-            HumanMessage(content=user_content_parts)
-            if len(user_content_parts) > 1
-            else HumanMessage(content=message)
-        )
-        lc_messages.append(latest_human)
-
-        trimmed_messages = trim_messages(
-            lc_messages,
-            max_tokens=10000,
-            strategy="last",
-            include_system=False,
-            allow_partial=False,
-            token_counter=count_tokens_approximately,
-        )
-
-        system_prompt = (
-            "Your name is Trove. You are an intelligent, helpful AI assistant. "
-            "Respond in clear, well-structured GitHub-flavored Markdown."
-        )
-        if web_search:
-            system_prompt += " Use the web search tool whenever necessary to fetch up-to-date facts before answering."
-        if context_text or upload_context:
-            system_prompt += f"\n\nContext from relevant knowledge base and uploaded documents:\n{context_text}\n{upload_context}"
-
-        prompt_template = ChatPromptTemplate([
-            SystemMessage(content=system_prompt),
-            MessagesPlaceholder("prev_history"),
-        ])
-
-        messages = prompt_template.invoke({
-            "prev_history": trimmed_messages
-        })
-
-        async for step, info in agent.astream(messages, stream_mode="messages"):
-            if info.get("langgraph_node") == "agent" and (chunk := step.text()):
-                yield chunk
+        async for chunk in agent_stream:
+            yield (chunk, new_db_agent)

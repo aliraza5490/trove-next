@@ -7,9 +7,13 @@ export default async function ChatPage({ params }: { params: Promise<{ chatId: s
   const { chatId } = await params;
 
   let initialMessages: any[] = [];
+  let initialAgent: string | null = null;
   try {
     const res = await serverAPI.get(`/chat/${chatId}`);
     const data = res.data;
+    if (data?.chat?.agent) {
+      initialAgent = data.chat.agent;
+    }
     if (data?.messages) {
       initialMessages = data.messages.map((m: any) => ({
         id: m.id,
@@ -30,7 +34,7 @@ export default async function ChatPage({ params }: { params: Promise<{ chatId: s
     return redirect('/dashboard');
   }
 
-  return <ChatClient chatId={chatId} initialMessages={initialMessages} key={chatId} />;
+  return <ChatClient chatId={chatId} initialMessages={initialMessages} initialAgent={initialAgent} key={chatId} />;
 }
 
 
