@@ -7,6 +7,7 @@ from langchain_cohere import CohereEmbeddings
 from langchain_postgres import PGVectorStore
 from langchain_postgres.v2.engine import PGEngine, Column
 from langchain_text_splitters.character import RecursiveCharacterTextSplitter
+from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import text
 
@@ -61,6 +62,11 @@ text_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=20)
 
 async def create_vector_store_table():
     try:
+        async with engine.connect() as conn:
+            exists = await conn.run_sync(lambda sync_conn: inspect(sync_conn).has_table(TABLE_NAME))
+        if exists:
+            return
+
         await pg_engine.ainit_vectorstore_table(
             table_name=TABLE_NAME,
             vector_size=VECTOR_SIZE,
