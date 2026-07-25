@@ -189,7 +189,6 @@ export default function ChatClient({ chatId, initialMessages = [], initialAgent 
     prevChatIdRef.current = chatId;
   }, [chatId, initialAgentOption]);
 
-  const queryClient = useQueryClient();
   const updateChatAgentMutation = useUpdateChatAgentMutation();
   const uploadFileMutation = useUploadFileMutation();
 
