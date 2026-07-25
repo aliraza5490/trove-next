@@ -4,7 +4,10 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from app.settings import settings
 
 
-def get_llm_model(temperature: float = 0.7, model_name: str = "gemini-3.1-flash-lite") -> BaseChatModel:
+def get_llm_model(temperature: float = 0.7, model_name: str | None = None) -> BaseChatModel:
+    if not model_name:
+        model_name = os.getenv("DEFAULT_LLM_MODEL", "gemma-4-26b-a4b-it")
+
     google_api_key = (
         getattr(settings, "GOOGLE_AI_STUDIO_API_KEY", None)
         or os.getenv("GOOGLE_AI_STUDIO_API_KEY")
@@ -15,3 +18,4 @@ def get_llm_model(temperature: float = 0.7, model_name: str = "gemini-3.1-flash-
         temperature=temperature,
         google_api_key=google_api_key,
     )
+
