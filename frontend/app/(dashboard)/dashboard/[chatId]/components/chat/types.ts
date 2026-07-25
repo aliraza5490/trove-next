@@ -32,4 +32,7 @@ export type SuggestedPrompt = {
   subtitle: string;
   prompt: string;
   color: string;
+  agentKey?: string;
+  agentTag?: string;
 };
+

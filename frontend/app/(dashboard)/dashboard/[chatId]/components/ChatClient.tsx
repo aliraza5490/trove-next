@@ -348,12 +348,23 @@ export default function ChatClient({ chatId, initialMessages = [], initialAgent 
   }, []);
 
   const handleSelectSuggestedPrompt = useCallback(
-    (promptText: string) => {
+    (promptText: string, agentKey?: string) => {
       setInput(promptText);
+      if (agentKey) {
+        const matched = AGENT_OPTIONS.find(
+          (opt) =>
+            opt.key.toLowerCase() === agentKey.toLowerCase() ||
+            opt.tag.toLowerCase() === agentKey.toLowerCase()
+        );
+        if (matched) {
+          handleSetSelectedAgent(matched);
+        }
+      }
       textareaRef.current?.focus();
     },
-    [textareaRef]
+    [handleSetSelectedAgent, textareaRef]
   );
+
 
   // Global key listener to auto-focus input on typing anywhere & handle Enter on new chat page
   useEffect(() => {
