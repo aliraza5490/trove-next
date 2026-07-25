@@ -13,18 +13,30 @@ from app.agent.agents import (
 )
 
 
+from app.agent.core.utils import extract_text_content
+
+
 class TroveAgent:
     @classmethod
     async def generate_title(cls, message: str) -> str:
-        fallback_title = message[:30] + ("..." if len(message) > 30 else "")
+        clean_message = message.strip()
+        for tag in ["@scout", "@draft", "@brief", "@plan", "@recall", "@read", "@default", "@reset", "@auto"]:
+            if clean_message.lower().startswith(tag):
+                clean_message = clean_message[len(tag):].strip()
+                break
+        if not clean_message:
+            clean_message = message
+
+        fallback_title = clean_message[:30] + ("..." if len(clean_message) > 30 else "")
         try:
             llm = get_llm_model(temperature=0.0)
             res = await llm.ainvoke([
                 ("system", "Generate a concise title (3-6 words) for a chat conversation based on the user message. Do not use quotes or punctuation."),
-                ("user", message)
+                ("user", clean_message)
             ])
             if res and res.content:
-                title = str(res.content).strip().strip('"\'')
+                text_content = extract_text_content(res.content)
+                title = text_content.strip().strip('"\'')
                 return title if title else fallback_title
         except Exception as err:
             print(f"[TroveAgent] Title generation failed: {err}")

@@ -11,6 +11,7 @@ from sqlmodel import select, asc, desc
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.agent import TroveAgent
+from app.agent.core.utils import extract_text_content
 from app.models.chat import Chat
 from app.models.file import File
 from app.models.message import Message, Role
@@ -280,6 +281,11 @@ class ChatService:
 
         formatted_chats = []
         for chat in chats:
+            cleaned_title = extract_text_content(chat.title)
+            if cleaned_title != chat.title:
+                chat.title = cleaned_title
+                session.add(chat)
+                await session.commit()
             last_msg_q = await session.exec(
                 select(Message)
                 .where(Message.chat_id == chat.id, Message.role != Role.SYSTEM)
@@ -289,7 +295,7 @@ class ChatService:
             last_msg = last_msg_q.first()
             formatted_chats.append({
                 "id": str(chat.id),
-                "title": chat.title,
+                "title": cleaned_title,
                 "updatedAt": chat.updated_at.isoformat() if chat.updated_at else datetime.now(timezone.utc).isoformat(),
                 "lastMessage": last_msg.message if last_msg else None,
             })
@@ -384,6 +390,15 @@ class ChatService:
     async def get_chat_list(cls, user: TokenData, session: AsyncSession):
         result = await session.exec(select(Chat).where(Chat.user_id == user.id).order_by(desc(Chat.created_at)))
         chats = result.all()
+        updated_any = False
+        for chat in chats:
+            cleaned = extract_text_content(chat.title)
+            if cleaned != chat.title:
+                chat.title = cleaned
+                session.add(chat)
+                updated_any = True
+        if updated_any:
+            await session.commit()
         return chats
 
     @classmethod

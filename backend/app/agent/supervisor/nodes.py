@@ -2,6 +2,7 @@ import json
 from typing import AsyncGenerator
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from app.agent.core.provider import get_llm_model
+from app.agent.core.utils import extract_text_content
 
 
 async def run_default_agent(
@@ -51,4 +52,6 @@ async def run_default_agent(
 
     async for chunk in llm.astream(lc_messages):
         if chunk.content:
-            yield f"data: {json.dumps({'type': 'message', 'content': chunk.content})}\n\n"
+            chunk_text = extract_text_content(chunk.content)
+            if chunk_text:
+                yield f"data: {json.dumps({'type': 'message', 'content': chunk_text})}\n\n"

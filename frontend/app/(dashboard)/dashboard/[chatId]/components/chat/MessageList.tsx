@@ -170,36 +170,37 @@ export function ChatBubble({
         {isUser ? (
           renderUserMessageContent(content)
         ) : content === "" ? (
-          <div className="flex items-center gap-1.5 py-1 px-0.5" aria-label="Thinking">
-            {!status && (
-              <>
-                <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce [animation-delay:-0.3s]" />
-                <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce [animation-delay:-0.15s]" />
-                <span className="size-1.5 rounded-full bg-foreground/45 animate-bounce" />
-              </>
-            )}
+          <div className="flex items-center gap-1.5 py-1 px-0.5" aria-label="Researching">
+            {isStreamingMessage || status ? (
+              <span className="inline-block w-[2px] h-4 rounded-full bg-emerald-500 animate-cursor-blink shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
+            ) : null}
           </div>
         ) : (
-          <div
-            className="prose dark:prose-invert max-w-none text-sm leading-relaxed
-              [&_a]:text-primary-600 [&_a]:underline hover:[&_a]:text-primary-500
-              [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-2
-              [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-2
-              [&_p]:my-1.5 [&_p]:first:mt-0 [&_p]:last:mb-0
-              [&_code]:bg-accent/80 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono
-              [&_pre]:bg-black/90 [&_pre]:text-white [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:my-2 [&_pre]:overflow-x-auto
-              [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-white
-              [&_h1]:text-lg [&_h1]:font-bold [&_h1]:my-2
-              [&_h2]:text-base [&_h2]:font-bold [&_h2]:my-2
-              [&_h3]:text-sm [&_h3]:font-bold [&_h3]:my-1.5
-              [&_blockquote]:border-l-4 [&_blockquote]:border-primary/50 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:my-2
-              [&_table]:w-full [&_table]:border-collapse [&_table]:my-3
-              [&_th]:border [&_th]:border-border [&_th]:p-1.5 [&_th]:bg-accent [&_th]:font-semibold
-              [&_td]:border [&_td]:border-border [&_td]:p-1.5"
-          >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {content}
-            </ReactMarkdown>
+          <div>
+            <div
+              className="prose dark:prose-invert max-w-none text-sm leading-relaxed
+                [&_a]:text-primary-600 [&_a]:underline hover:[&_a]:text-primary-500
+                [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:my-2
+                [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-2
+                [&_p]:my-1.5 [&_p]:first:mt-0 [&_p]:last:mb-0
+                [&_code]:bg-accent/80 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono
+                [&_pre]:bg-black/90 [&_pre]:text-white [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:my-2 [&_pre]:overflow-x-auto
+                [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-white
+                [&_h1]:text-lg [&_h1]:font-bold [&_h1]:my-2
+                [&_h2]:text-base [&_h2]:font-bold [&_h2]:my-2
+                [&_h3]:text-sm [&_h3]:font-bold [&_h3]:my-1.5
+                [&_blockquote]:border-l-4 [&_blockquote]:border-primary/50 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:my-2
+                [&_table]:w-full [&_table]:border-collapse [&_table]:my-3
+                [&_th]:border [&_th]:border-border [&_th]:p-1.5 [&_th]:bg-accent [&_th]:font-semibold
+                [&_td]:border [&_td]:border-border [&_td]:p-1.5"
+            >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content}
+              </ReactMarkdown>
+            </div>
+            {isStreamingMessage && (
+              <span className="inline-block w-[2px] h-4 ml-1 translate-y-[2px] align-middle rounded-full bg-emerald-500 animate-cursor-blink shadow-[0_0_6px_rgba(16,185,129,0.7)]" />
+            )}
           </div>
         )}
 

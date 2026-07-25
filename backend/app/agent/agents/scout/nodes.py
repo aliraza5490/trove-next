@@ -4,6 +4,7 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langgraph.prebuilt import create_react_agent
 
 from app.agent.core.provider import get_llm_model
+from app.agent.core.utils import extract_text_content
 from app.agent.agents.scout.tools.web_search import get_web_search_tool
 
 
@@ -65,10 +66,16 @@ async def run_scout_agent(
     if agent:
         prompt_messages = [SystemMessage(content=system_prompt)] + lc_messages
         async for step, info in agent.astream({"messages": prompt_messages}, stream_mode="messages"):
-            if info.get("langgraph_node") == "agent" and (chunk := step.text()):
-                yield f"data: {json.dumps({'type': 'message', 'content': chunk})}\n\n"
+            if info.get("langgraph_node") == "agent":
+                chunk_text = step.text() if hasattr(step, "text") and callable(step.text) else ""
+                if not chunk_text and hasattr(step, "content"):
+                    chunk_text = extract_text_content(step.content)
+                if chunk_text:
+                    yield f"data: {json.dumps({'type': 'message', 'content': chunk_text})}\n\n"
     else:
         full_messages = [SystemMessage(content=system_prompt)] + lc_messages
         async for chunk in llm.astream(full_messages):
             if chunk.content:
-                yield f"data: {json.dumps({'type': 'message', 'content': chunk.content})}\n\n"
+                chunk_text = extract_text_content(chunk.content)
+                if chunk_text:
+                    yield f"data: {json.dumps({'type': 'message', 'content': chunk_text})}\n\n"
