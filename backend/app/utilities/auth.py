@@ -49,7 +49,7 @@ async def get_db_user(token_data: TokenData, session: AsyncSession):
     # Query the user from database
     user, = await session.exec(select(User).where(User.email == token_data.email).limit(1))
     if user is None:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
+        raise HTTPException(status_code=400, detail="Invalid email or password")
 
     # Check if user is active
     if not user.isActive:

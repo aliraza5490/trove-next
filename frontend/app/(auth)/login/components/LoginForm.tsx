@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { loginSchema, LoginInput, useLoginMutation } from '../hooks';
+import { loginSchema, LoginInput, useLoginMutation, getAuthErrorMessage } from '../hooks';
 
 export function LoginForm() {
   const loginMutation = useLoginMutation();
@@ -40,6 +40,15 @@ export function LoginForm() {
                 <h1 className="text-2xl font-bold">Welcome back</h1>
                 <p className="text-balance text-muted-foreground">Login to your Trove account</p>
               </div>
+
+              {loginMutation.isError && (
+                <div
+                  className="rounded-md bg-destructive/15 p-3 text-sm text-destructive font-medium text-center"
+                  role="alert"
+                >
+                  {getAuthErrorMessage(loginMutation.error)}
+                </div>
+              )}
 
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>

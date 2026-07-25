@@ -64,14 +64,14 @@ class AuthService:
         if not user_data:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
+                detail="Invalid email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         does_pass_match = pwd_context.verify(user.password, user_data.hashed_password)
         if not does_pass_match:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
+                detail="Invalid email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

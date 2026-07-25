@@ -15,6 +15,22 @@ const setAuthCookie = (token: string) => {
   document.cookie = `token=${token}; path=/; max-age=691200`;
 };
 
+export const getAuthErrorMessage = (error: any): string => {
+  if (!error) return 'An error occurred during login.';
+  if (error?.response?.status === 401 || error?.response?.status === 400) {
+    const detail = error?.response?.data?.detail;
+    if (typeof detail === 'string' && detail !== 'Incorrect username or password') {
+      return detail;
+    }
+    return 'Invalid email or password.';
+  }
+  const detail = error?.response?.data?.detail || error?.message;
+  if (typeof detail === 'string') {
+    return detail;
+  }
+  return 'Invalid credentials. Please check your email and password.';
+};
+
 export const useLoginMutation = () => {
   const router = useRouter();
 
@@ -38,8 +54,7 @@ export const useLoginMutation = () => {
     },
     onError: (error: any) => {
       console.error('Login failed:', error);
-      const detail = error?.response?.data?.detail || error.message || 'Login failed. Please check your credentials.';
-      const message = typeof detail === 'string' ? detail : JSON.stringify(detail);
+      const message = getAuthErrorMessage(error);
       toast.error(message);
     },
   });
